@@ -67,6 +67,8 @@ export default function Bible() {
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{verseId: string, wordIndex: number} | null>(null);
+  const [draggingPin, setDraggingPin] = useState<'start' | 'end' | null>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<{verseId: string, wordIndex: number} | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -176,8 +178,14 @@ export default function Bible() {
     }, 300);
   };
 
+  const handlePinDown = (e: React.TouchEvent | React.MouseEvent, type: 'start' | 'end') => {
+    e.stopPropagation();
+    setDraggingPin(type);
+    setSelectionAnchor(type === 'start' ? selectedWords[selectedWords.length - 1] : selectedWords[0]);
+  };
+
   const handlePointerMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isSelecting) {
+    if (!isSelecting && !draggingPin) {
       if (longPressTimer.current) clearTimeout(longPressTimer.current);
       return;
     }
@@ -189,7 +197,13 @@ export default function Bible() {
     if (element && element.hasAttribute('data-verse-id')) {
       const verseId = element.getAttribute('data-verse-id')!;
       const wordIndex = parseInt(element.getAttribute('data-word-index')!, 10);
-      if (selectionStart) {
+      
+      if (draggingPin && selectionAnchor) {
+        const newSelection = getWordsInRange(selectionAnchor, { verseId, wordIndex });
+        setSelectedWords(newSelection);
+        const rect = element.getBoundingClientRect();
+        setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+      } else if (isSelecting && selectionStart) {
         const newSelection = getWordsInRange(selectionStart, { verseId, wordIndex });
         setSelectedWords(newSelection);
         const rect = element.getBoundingClientRect();
@@ -201,11 +215,45 @@ export default function Bible() {
   const handlePointerUp = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
     setIsSelecting(false);
+    setDraggingPin(null);
   };
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
     if (isSelecting) return;
-    const newSelection = [{ verseId, wordIndex }];
+    
+    let newSelection = [];
+    if (selectedWords.length > 0) {
+      const start = selectedWords[0];
+      const clickedSameWord = selectedWords.length === 1 && start.verseId === verseId && start.wordIndex === wordIndex;
+      
+      if (clickedSameWord) {
+        setSelectedWords([]);
+        return;
+      } else {
+        newSelection = getWordsInRange(start, { verseId, wordIndex });
+      }
+    } else {
+      newSelection = [{ verseId, wordIndex }];
+    }
+    
+    setSelectedWords(newSelection);
+    
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    setShowColorPicker(false);
+  };
+
+  const handleVerseClick = (e: React.MouseEvent, verseId: string) => {
+    if (!currentPassage) return;
+    const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
+    if (!verse) return;
+
+    const wordCount = verse.text.split(' ').length;
+    const newSelection = Array.from({ length: wordCount }, (_, i) => ({
+      verseId,
+      wordIndex: i
+    }));
+
     setSelectedWords(newSelection);
     
     const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -217,13 +265,14 @@ export default function Bible() {
     if (!user || selectedWords.length === 0 || !currentPassage) return;
     
     try {
-      const { verseId, wordIndex } = selectedWords[0];
+      const startFlat = getFlatIndex(selectedWords[0].verseId, selectedWords[0].wordIndex);
+      const endFlat = getFlatIndex(selectedWords[selectedWords.length - 1].verseId, selectedWords[selectedWords.length - 1].wordIndex);
       
       const newHighlight = {
         user_id: user.id,
         passage_id: currentPassage.id,
-        word_start: wordIndex,
-        word_end: wordIndex,
+        word_start: Math.min(startFlat, endFlat),
+        word_end: Math.max(startFlat, endFlat),
         color: color
       };
 
@@ -282,12 +331,13 @@ export default function Bible() {
     }
   };
 
-  const isWordHighlighted = (wordIndex: number) => {
+  const isWordHighlighted = (verseId: string, wordIndex: number) => {
     if (!currentPassage) return null;
+    const flatIndex = getFlatIndex(verseId, wordIndex);
     const highlight = highlights.find(h => 
       h.passage_id === currentPassage.id && 
-      wordIndex >= h.word_start && 
-      wordIndex <= h.word_end
+      flatIndex >= h.word_start && 
+      flatIndex <= h.word_end
     );
     return highlight ? highlight.color : null;
   };
@@ -366,12 +416,17 @@ export default function Bible() {
       {/* Reader Content */}
       <div 
         className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 select-none"
-        style={{ touchAction: isSelecting ? 'none' : 'pan-y' }}
+        style={{ touchAction: (isSelecting || draggingPin) ? 'none' : 'pan-y' }}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
         onMouseLeave={handlePointerUp}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setSelectedWords([]);
+          }
+        }}
       >
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-text-muted">
@@ -393,17 +448,23 @@ export default function Bible() {
             
             <div className="space-y-6 mb-12">
               {currentPassage.verses.map((v) => (
-                <div key={v.verse} className="flex items-start">
-                  <span className="text-[11px] text-text-muted font-medium mr-2 mt-1.5 select-none min-w-[16px]">
+                <div key={v.verse} className="flex items-start mb-2">
+                  <span 
+                    onClick={(e) => handleVerseClick(e, v.verse.toString())}
+                    className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium mr-2 mt-1.5 select-none min-w-[16px] shrink-0"
+                  >
                     {v.verse}
                   </span>
                   <p 
-                    className="text-text-primary leading-[1.8] flex-1 flex flex-wrap"
+                    className="text-text-primary leading-[1.8] flex-1"
                     style={{ fontSize: `${textSize}px` }}
                   >
-                    {v.text.split(' ').map((word, i) => {
-                      const highlightColor = isWordHighlighted(i);
+                    {v.text.split(' ').map((word, i, arr) => {
+                      const highlightColor = isWordHighlighted(v.verse.toString(), i);
                       const isSelected = isWordSelected(v.verse.toString(), i);
+                      const isFirstSelected = isSelected && selectedWords[0]?.verseId === v.verse.toString() && selectedWords[0]?.wordIndex === i;
+                      const isLastSelected = isSelected && selectedWords[selectedWords.length - 1]?.verseId === v.verse.toString() && selectedWords[selectedWords.length - 1]?.wordIndex === i;
+                      const isLastWordInVerse = i === arr.length - 1;
                       
                       return (
                         <span
@@ -413,14 +474,34 @@ export default function Bible() {
                           onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
                           onTouchStart={(e) => handlePointerDown(e, v.verse.toString(), i)}
                           onMouseDown={(e) => handlePointerDown(e, v.verse.toString(), i)}
-                          className={`mr-1 cursor-pointer transition-colors rounded-sm px-0.5 -mx-0.5
-                            ${isSelected ? 'border-b-2 border-text-primary bg-bg-hover' : ''}
-                          `}
+                          className={`relative cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/30' : ''}`}
                           style={{
-                            backgroundColor: highlightColor ? `var(--color-highlight-${highlightColor})` : undefined
+                            backgroundColor: highlightColor && !isSelected ? `var(--color-highlight-${highlightColor})` : undefined
                           }}
                         >
-                          {word}
+                          {isFirstSelected && (
+                            <div 
+                              className="absolute left-0 top-0 bottom-0 w-6 -ml-3 flex justify-center z-50 cursor-ew-resize"
+                              onTouchStart={(e) => handlePinDown(e, 'start')}
+                              onMouseDown={(e) => handlePinDown(e, 'start')}
+                            >
+                              <div className="w-[2px] h-full bg-blue-600 relative">
+                                <div className="absolute -top-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm" />
+                              </div>
+                            </div>
+                          )}
+                          {word}{!isLastWordInVerse && ' '}
+                          {isLastSelected && (
+                            <div 
+                              className="absolute right-0 top-0 bottom-0 w-6 -mr-3 flex justify-center z-50 cursor-ew-resize"
+                              onTouchStart={(e) => handlePinDown(e, 'end')}
+                              onMouseDown={(e) => handlePinDown(e, 'end')}
+                            >
+                              <div className="w-[2px] h-full bg-blue-600 relative">
+                                <div className="absolute -bottom-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm" />
+                              </div>
+                            </div>
+                          )}
                         </span>
                       );
                     })}
