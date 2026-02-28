@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+:root {
+  --color-highlight-yellow: rgba(255, 230, 0, 0.4);
+  --color-highlight-blue: rgba(0, 122, 255, 0.2);
+  --color-highlight-green: rgba(52, 199, 89, 0.2);
+  --color-highlight-pink: rgba(255, 45, 85, 0.2);
+  --color-highlight-red: rgba(255, 59, 48, 0.2);
+}
+
 @theme {
   --color-bg-base: #FFFFFF;
   --color-bg-surface: #F9F9F9;
@@ -22,11 +30,11 @@
   --color-error: #FF3B30;
   --color-warning: #FF9500;
 
-  --color-highlight-yellow: rgba(255, 230, 0, 0.4);
-  --color-highlight-blue: rgba(0, 122, 255, 0.2);
-  --color-highlight-green: rgba(52, 199, 89, 0.2);
-  --color-highlight-pink: rgba(255, 45, 85, 0.2);
-  --color-highlight-red: rgba(255, 59, 48, 0.2);
+  --color-highlight-yellow: var(--color-highlight-yellow);
+  --color-highlight-blue: var(--color-highlight-blue);
+  --color-highlight-green: var(--color-highlight-green);
+  --color-highlight-pink: var(--color-highlight-pink);
+  --color-highlight-red: var(--color-highlight-red);
 
   --color-border: #E5E5E5;
   --color-border-focus: #111111;

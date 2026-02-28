@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
@@ -210,6 +210,54 @@ export default function Bible() {
     }, 300);
   };
 
+  const handleVersePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string) => {
+    if (!currentPassage) return;
+    longPressTimer.current = setTimeout(() => {
+      const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
+      if (!verse) return;
+
+      setIsSelecting(true);
+      const wordCount = verse.text.split(' ').length;
+      const newSelection = Array.from({ length: wordCount }, (_, i) => ({
+        verseId,
+        wordIndex: i
+      }));
+
+      setSelectionStart(newSelection[0]);
+      setSelectedWords(newSelection);
+      updatePopupPosition(newSelection);
+      setShowColorPicker(false);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 300);
+  };
+
+  const handleWordPointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
+    if (!currentPassage || !isMobile) return;
+    
+    const highlight = getHighlightForWord(verseId, wordIndex);
+    if (highlight) {
+      // If tapping a highlighted word on mobile, select the whole highlight immediately
+      let newSelection: {verseId: string, wordIndex: number}[] = [];
+      let currentIndex = 0;
+      for (const v of currentPassage.verses) {
+        const words = v.text.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          if (currentIndex >= highlight.word_start && currentIndex <= highlight.word_end) {
+            newSelection.push({ verseId: v.verse.toString(), wordIndex: i });
+          }
+          currentIndex++;
+        }
+      }
+      setSelectedWords(newSelection);
+      updatePopupPosition(newSelection);
+      setShowColorPicker(false);
+      return;
+    }
+    
+    // Otherwise, fall back to normal long press behavior
+    handlePointerDown(e, verseId, wordIndex);
+  };
+
   const handlePinDown = (e: React.TouchEvent | React.MouseEvent, type: 'start' | 'end') => {
     e.stopPropagation();
     setDraggingPin(type);
@@ -250,7 +298,7 @@ export default function Bible() {
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
     e.stopPropagation();
-    if (isSelecting) return;
+    if (isSelecting || isMobile) return; // Disable single-tap selection on mobile
     
     if (selectedWords.length > 0) {
       const isWordSelected = selectedWords.some(w => w.verseId === verseId && w.wordIndex === wordIndex);
@@ -260,8 +308,24 @@ export default function Bible() {
         return;
       }
     }
-    
-    const newSelection = [{ verseId, wordIndex }];
+
+    const highlight = getHighlightForWord(verseId, wordIndex);
+    let newSelection = [{ verseId, wordIndex }];
+
+    if (highlight && currentPassage) {
+      // Select the entire highlight
+      newSelection = [];
+      let currentIndex = 0;
+      for (const v of currentPassage.verses) {
+        const words = v.text.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          if (currentIndex >= highlight.word_start && currentIndex <= highlight.word_end) {
+            newSelection.push({ verseId: v.verse.toString(), wordIndex: i });
+          }
+          currentIndex++;
+        }
+      }
+    }
     
     setSelectedWords(newSelection);
     updatePopupPosition(newSelection);
@@ -270,7 +334,7 @@ export default function Bible() {
 
   const handleVerseClick = (e: React.MouseEvent, verseId: string) => {
     e.stopPropagation();
-    if (!currentPassage) return;
+    if (!currentPassage || isMobile) return; // Disable single-tap selection on mobile
     const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
     if (!verse) return;
 
@@ -292,23 +356,82 @@ export default function Bible() {
       const startFlat = getFlatIndex(selectedWords[0].verseId, selectedWords[0].wordIndex);
       const endFlat = getFlatIndex(selectedWords[selectedWords.length - 1].verseId, selectedWords[selectedWords.length - 1].wordIndex);
       
-      const newHighlight = {
-        user_id: user.id,
-        passage_id: currentPassage.id,
-        book: currentPassage.book,
-        chapter: currentPassage.chapter,
-        verse: selectedWords[0].verseId,
-        word_start: Math.min(startFlat, endFlat),
-        word_end: Math.max(startFlat, endFlat),
-        color: color
-      };
+      const minFlat = Math.min(startFlat, endFlat);
+      const maxFlat = Math.max(startFlat, endFlat);
 
-      await supabase.from('highlights').insert([newHighlight]);
+      // Check if we are updating an existing highlight
+      const existingHighlight = highlights.find(h => 
+        h.passage_id === currentPassage.id && 
+        ((minFlat >= h.word_start && minFlat <= h.word_end) || 
+         (maxFlat >= h.word_start && maxFlat <= h.word_end) ||
+         (minFlat <= h.word_start && maxFlat >= h.word_end))
+      );
+
+      if (existingHighlight) {
+        // Update existing highlight
+        await supabase
+          .from('highlights')
+          .update({ color })
+          .eq('id', existingHighlight.id);
+          
+        setHighlights(highlights.map(h => 
+          h.id === existingHighlight.id ? { ...h, color } : h
+        ));
+      } else {
+        // Create new highlight
+        const newHighlight = {
+          user_id: user.id,
+          passage_id: currentPassage.id,
+          book: currentPassage.book,
+          chapter: currentPassage.chapter,
+          verse: selectedWords[0].verseId,
+          word_start: minFlat,
+          word_end: maxFlat,
+          color: color
+        };
+
+        const { data, error } = await supabase.from('highlights').insert([newHighlight]).select();
+        
+        if (error) throw error;
+        if (data && data.length > 0) {
+          setHighlights([...highlights, data[0]]);
+        } else {
+          // Fallback if select() doesn't return data but insert succeeded
+          setHighlights([...highlights, newHighlight]);
+        }
+      }
       
-      setHighlights([...highlights, newHighlight]);
       setSelectedWords([]);
     } catch (err) {
       console.error('Error saving highlight:', err);
+    }
+  };
+
+  const handleDeleteHighlight = async () => {
+    if (!user || selectedWords.length === 0 || !currentPassage) return;
+    
+    try {
+      const startFlat = getFlatIndex(selectedWords[0].verseId, selectedWords[0].wordIndex);
+      
+      const existingHighlight = highlights.find(h => 
+        h.passage_id === currentPassage.id && 
+        startFlat >= h.word_start && 
+        startFlat <= h.word_end
+      );
+
+      if (existingHighlight && existingHighlight.id) {
+        await supabase
+          .from('highlights')
+          .delete()
+          .eq('id', existingHighlight.id);
+          
+        setHighlights(highlights.filter(h => h.id !== existingHighlight.id));
+      }
+      
+      setSelectedWords([]);
+      setShowColorPicker(false);
+    } catch (err) {
+      console.error('Error deleting highlight:', err);
     }
   };
 
@@ -405,14 +528,18 @@ export default function Bible() {
     }
   };
 
-  const isWordHighlighted = (verseId: string, wordIndex: number) => {
+  const getHighlightForWord = (verseId: string, wordIndex: number) => {
     if (!currentPassage) return null;
     const flatIndex = getFlatIndex(verseId, wordIndex);
-    const highlight = highlights.find(h => 
+    return highlights.find(h => 
       h.passage_id === currentPassage.id && 
       flatIndex >= h.word_start && 
       flatIndex <= h.word_end
-    );
+    ) || null;
+  };
+
+  const isWordHighlighted = (verseId: string, wordIndex: number) => {
+    const highlight = getHighlightForWord(verseId, wordIndex);
     return highlight ? highlight.color : null;
   };
 
@@ -527,6 +654,8 @@ export default function Bible() {
                 <div key={v.verse} className="flex items-start mb-2">
                   <span 
                     onClick={(e) => handleVerseClick(e, v.verse.toString())}
+                    onTouchStart={(e) => handleVersePointerDown(e, v.verse.toString())}
+                    onMouseDown={(e) => handleVersePointerDown(e, v.verse.toString())}
                     className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium mr-2 mt-1.5 select-none min-w-[16px] shrink-0"
                   >
                     {v.verse}
@@ -548,8 +677,8 @@ export default function Bible() {
                           data-verse-id={v.verse.toString()}
                           data-word-index={i}
                           onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
-                          onTouchStart={(e) => handlePointerDown(e, v.verse.toString(), i)}
-                          onMouseDown={(e) => handlePointerDown(e, v.verse.toString(), i)}
+                          onTouchStart={(e) => handleWordPointerDown(e, v.verse.toString(), i)}
+                          onMouseDown={(e) => isMobile ? handleWordPointerDown(e, v.verse.toString(), i) : handlePointerDown(e, v.verse.toString(), i)}
                           className={`relative cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/30' : ''}`}
                           style={{
                             backgroundColor: highlightColor && !isSelected 
@@ -683,7 +812,7 @@ export default function Bible() {
       )}
 
       {/* Popup Action Menu */}
-      {selectedWords.length > 0 && (
+      {selectedWords.length > 0 && !isSelecting && !draggingPin && (
         <>
           {/* Mobile Overlay */}
           {isMobile && (
@@ -770,9 +899,14 @@ export default function Bible() {
               <button onClick={() => navigate('/journal')} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 <BookOpen size={isMobile ? 18 : 14} /> Journal
               </button>
-              <button onClick={handleCopy} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5'} text-text-primary hover:bg-bg-hover flex items-center`}>
+              <button onClick={handleCopy} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 <Copy size={isMobile ? 18 : 14} /> Copy
               </button>
+              {selectedWords.length > 0 && getHighlightForWord(selectedWords[0].verseId, selectedWords[0].wordIndex) && (
+                <button onClick={handleDeleteHighlight} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3 text-error' : 'px-3.5 py-2.5 text-[13px] gap-1.5 text-error'} hover:bg-error/10 flex items-center`}>
+                  <Trash2 size={isMobile ? 18 : 14} /> Delete
+                </button>
+              )}
             </div>
           )}
           </div>
