@@ -271,6 +271,9 @@ export default function Bible() {
       const newHighlight = {
         user_id: user.id,
         passage_id: currentPassage.id,
+        book: currentPassage.book,
+        chapter: currentPassage.chapter,
+        verse: selectedWords[0].verseId,
         word_start: Math.min(startFlat, endFlat),
         word_end: Math.max(startFlat, endFlat),
         color: color
@@ -292,6 +295,9 @@ export default function Bible() {
       await supabase.from('notes').insert([{
         user_id: user.id,
         passage_id: currentPassage.id,
+        book: currentPassage.book,
+        chapter: currentPassage.chapter,
+        verse: selectedWords.length > 0 ? selectedWords[0].verseId : null,
         content: noteText,
         type: 'note'
       }]);
@@ -310,6 +316,8 @@ export default function Bible() {
       await supabase.from('notes').insert([{
         user_id: user.id,
         passage_id: currentPassage.id,
+        book: currentPassage.book,
+        chapter: currentPassage.chapter,
         content: `${currentPassage.book} ${currentPassage.chapter}`,
         type: 'bookmark'
       }]);
@@ -455,7 +463,7 @@ export default function Bible() {
                   >
                     {v.verse}
                   </span>
-                  <p 
+                  <div 
                     className="text-text-primary leading-[1.8] flex-1"
                     style={{ fontSize: `${textSize}px` }}
                   >
@@ -480,32 +488,32 @@ export default function Bible() {
                           }}
                         >
                           {isFirstSelected && (
-                            <div 
+                            <span 
                               className="absolute left-0 top-0 bottom-0 w-6 -ml-3 flex justify-center z-50 cursor-ew-resize"
                               onTouchStart={(e) => handlePinDown(e, 'start')}
                               onMouseDown={(e) => handlePinDown(e, 'start')}
                             >
-                              <div className="w-[2px] h-full bg-blue-600 relative">
-                                <div className="absolute -top-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm" />
-                              </div>
-                            </div>
+                              <span className="w-[2px] h-full bg-blue-600 relative block">
+                                <span className="absolute -top-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm block" />
+                              </span>
+                            </span>
                           )}
                           {word}{!isLastWordInVerse && ' '}
                           {isLastSelected && (
-                            <div 
+                            <span 
                               className="absolute right-0 top-0 bottom-0 w-6 -mr-3 flex justify-center z-50 cursor-ew-resize"
                               onTouchStart={(e) => handlePinDown(e, 'end')}
                               onMouseDown={(e) => handlePinDown(e, 'end')}
                             >
-                              <div className="w-[2px] h-full bg-blue-600 relative">
-                                <div className="absolute -bottom-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm" />
-                              </div>
-                            </div>
+                              <span className="w-[2px] h-full bg-blue-600 relative block">
+                                <span className="absolute -bottom-2.5 -left-[5px] w-3 h-3 rounded-full bg-blue-600 shadow-sm block" />
+                              </span>
+                            </span>
                           )}
                         </span>
                       );
                     })}
-                  </p>
+                  </div>
                 </div>
               ))}
             </div>

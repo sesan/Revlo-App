@@ -40,7 +40,9 @@ export default function Notes() {
           framework,
           tags,
           created_at,
-          passages ( book, chapter, verse )
+          book,
+          chapter,
+          verse
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
@@ -75,7 +77,7 @@ export default function Notes() {
       result = result.filter(n => {
         const contentMatch = n.content?.toLowerCase().includes(query);
         const tagMatch = n.tags?.some((t: string) => t.toLowerCase().includes(query));
-        const refMatch = `${n.passages?.book} ${n.passages?.chapter}:${n.passages?.verse}`.toLowerCase().includes(query);
+        const refMatch = `${n.book} ${n.chapter}:${n.verse}`.toLowerCase().includes(query);
         return contentMatch || tagMatch || refMatch;
       });
     }
@@ -165,7 +167,7 @@ export default function Notes() {
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[13px] font-medium text-gold">
-                      {note.passages?.book} {note.passages?.chapter}:{note.passages?.verse}
+                      {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
                     </span>
                     <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}

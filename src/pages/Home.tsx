@@ -27,7 +27,9 @@ export default function Home() {
           content,
           type,
           created_at,
-          passages ( book, chapter, verse )
+          book,
+          chapter,
+          verse
         `)
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
@@ -173,7 +175,7 @@ export default function Home() {
                 <div key={note.id} onClick={() => navigate(`/notes/${note.id}`)} className="bg-bg-surface border border-border rounded-xl p-4 hover:bg-bg-hover cursor-pointer transition-colors">
                   <div className="flex justify-between items-start mb-2">
                     <span className="text-[13px] font-medium text-gold">
-                      {note.passages?.book} {note.passages?.chapter}:{note.passages?.verse}
+                      {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
                     </span>
                     <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}
