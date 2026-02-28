@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
@@ -58,8 +58,10 @@ export default function Bible() {
 
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0, bottomY: 0 });
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [highlights, setHighlights] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -78,10 +80,18 @@ export default function Bible() {
       setShowFloatingNav(!isNearBottom);
     };
     
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    
     window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
     handleScroll(); // Initial check
     
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -299,6 +309,48 @@ export default function Bible() {
       setSelectedWords([]);
     } catch (err) {
       console.error('Error saving highlight:', err);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!currentPassage || selectedWords.length === 0) return;
+    
+    // Sort selected words to ensure they are in order
+    const sortedSelection = [...selectedWords].sort((a, b) => {
+      if (a.verseId !== b.verseId) {
+        return parseInt(a.verseId) - parseInt(b.verseId);
+      }
+      return a.wordIndex - b.wordIndex;
+    });
+
+    // Group by verse
+    const versesMap = new Map<string, string[]>();
+    sortedSelection.forEach(({ verseId, wordIndex }) => {
+      const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
+      if (verse) {
+        const words = verse.text.split(' ');
+        if (!versesMap.has(verseId)) {
+          versesMap.set(verseId, []);
+        }
+        versesMap.get(verseId)!.push(words[wordIndex]);
+      }
+    });
+
+    // Construct text
+    let copiedText = '';
+    versesMap.forEach((words, verseId) => {
+      copiedText += `[${verseId}] ${words.join(' ')}\n`;
+    });
+    
+    copiedText += `\n— ${currentPassage.book} ${currentPassage.chapter}`;
+
+    try {
+      await navigator.clipboard.writeText(copiedText.trim());
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+      setSelectedWords([]);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
     }
   };
 
@@ -632,77 +684,108 @@ export default function Bible() {
 
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && (
-        <div 
-          className="fixed z-50 bg-bg-elevated border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-          style={{ 
-            left: Math.max(10, Math.min(window.innerWidth - (showColorPicker ? 240 : 280), popupPos.x - (showColorPicker ? 112 : 140))), 
-            ...(popupPos.y > window.innerHeight / 2
-              ? { bottom: Math.max(10, window.innerHeight - popupPos.y + 10) } 
-              : { top: Math.max(60, popupPos.bottomY) }
-            )
-          }}
-        >
-          {showColorPicker ? (
-            <div className="flex flex-col w-56 max-h-[calc(100vh-120px)] overflow-y-auto">
-              <div className="flex justify-between items-center px-3 py-2 border-b border-border bg-bg-surface">
-                <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Highlight Theme</span>
-                <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
-                  <X size={14} />
-                </button>
-              </div>
-              <div className="p-1.5 flex flex-col gap-0.5">
-                {[
-                  { color: 'yellow', label: 'God, Jesus, Holy Spirit' },
-                  { color: 'green', label: 'Growth, Encouragement' },
-                  { color: 'blue', label: 'Faith, Grace, Trust' },
-                  { color: 'red', label: 'Salvation, Sacrifice' },
-                  { color: 'pink', label: 'Love, Family, Relationships' },
-                ].map(theme => (
-                  <button
-                    key={theme.color}
-                    onClick={() => handleHighlight(theme.color)}
-                    className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-bg-hover transition-colors text-left group"
-                  >
-                    <div 
-                      className="w-4 h-4 rounded-full border border-border shrink-0 group-hover:scale-110 transition-transform"
-                      style={{ backgroundColor: `var(--color-highlight-${theme.color})` }}
-                    />
-                    <span className="text-[13px] text-text-primary">{theme.label}</span>
+        <>
+          {/* Mobile Overlay */}
+          {isMobile && (
+            <div 
+              className="fixed inset-0 bg-black/20 z-40 animate-in fade-in duration-200" 
+              onClick={() => {
+                setShowColorPicker(false);
+                setSelectedWords([]);
+              }} 
+            />
+          )}
+          
+          <div 
+            className={`fixed z-50 bg-bg-elevated border border-border shadow-2xl overflow-hidden animate-in duration-200 ${
+              isMobile
+                ? 'bottom-0 left-0 right-0 rounded-t-2xl slide-in-from-bottom-full pb-safe' 
+                : 'rounded-xl fade-in zoom-in-95'
+            }`}
+            style={
+              isMobile
+                ? {} // Let CSS handle bottom sheet positioning
+                : { 
+                    left: Math.max(10, Math.min(window.innerWidth - (showColorPicker ? 240 : 280), popupPos.x - (showColorPicker ? 112 : 140))), 
+                    ...(popupPos.y > window.innerHeight / 2
+                      ? { bottom: Math.max(10, window.innerHeight - popupPos.y + 10) } 
+                      : { top: Math.max(60, popupPos.bottomY) }
+                    )
+                  }
+            }
+          >
+            {showColorPicker ? (
+              <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh]' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto pb-safe`}>
+                <div className={`flex justify-between items-center ${isMobile ? 'px-4 py-3' : 'px-3 py-2'} border-b border-border bg-bg-surface`}>
+                  <span className={`${isMobile ? 'text-[12px]' : 'text-[11px]'} font-semibold text-text-secondary uppercase tracking-wider`}>Highlight Theme</span>
+                  <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
+                    <X size={16} className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                   </button>
-                ))}
-                
-                <div className="h-[1px] bg-border my-1 mx-2"></div>
-                
-                <div className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-bg-hover transition-colors text-left relative cursor-pointer group">
-                  <div className="w-4 h-4 rounded-full border border-border overflow-hidden shrink-0 shadow-sm relative group-hover:scale-110 transition-transform">
-                    <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
-                    <input 
-                      type="color" 
-                      className="absolute inset-[-10px] w-[40px] h-[40px] cursor-pointer opacity-0"
-                      onChange={(e) => handleHighlight(e.target.value)}
-                    />
+                </div>
+                <div className={`flex flex-col ${isMobile ? 'p-2 gap-1 pb-6' : 'p-1.5 gap-0.5'}`}>
+                  {[
+                    { color: 'yellow', label: 'God, Jesus, Holy Spirit' },
+                    { color: 'green', label: 'Growth, Encouragement' },
+                    { color: 'blue', label: 'Faith, Grace, Trust' },
+                    { color: 'red', label: 'Salvation, Sacrifice' },
+                    { color: 'pink', label: 'Love, Family, Relationships' },
+                  ].map(theme => (
+                    <button
+                      key={theme.color}
+                      onClick={() => handleHighlight(theme.color)}
+                      className={`w-full flex items-center ${isMobile ? 'gap-4 px-3 py-3 rounded-lg' : 'gap-3 px-2.5 py-2 rounded-md'} hover:bg-bg-hover transition-colors text-left group`}
+                    >
+                      <div 
+                        className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'} rounded-full border border-border shrink-0 group-hover:scale-110 transition-transform`}
+                        style={{ backgroundColor: `var(--color-highlight-${theme.color})` }}
+                      />
+                      <span className={`${isMobile ? 'text-[15px]' : 'text-[13px]'} text-text-primary`}>{theme.label}</span>
+                    </button>
+                  ))}
+                  
+                  <div className={`h-[1px] bg-border ${isMobile ? 'my-2 mx-3' : 'my-1 mx-2'}`}></div>
+                  
+                  <div className={`w-full flex items-center ${isMobile ? 'gap-4 px-3 py-3 rounded-lg' : 'gap-3 px-2.5 py-2 rounded-md'} hover:bg-bg-hover transition-colors text-left relative cursor-pointer group`}>
+                    <div className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'} rounded-full border border-border overflow-hidden shrink-0 shadow-sm relative group-hover:scale-110 transition-transform`}>
+                      <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
+                      <input 
+                        type="color" 
+                        className="absolute inset-[-10px] w-[40px] h-[40px] cursor-pointer opacity-0"
+                        onChange={(e) => handleHighlight(e.target.value)}
+                      />
+                    </div>
+                    <span className={`${isMobile ? 'text-[15px]' : 'text-[13px]'} text-text-primary`}>Custom Color...</span>
                   </div>
-                  <span className="text-[13px] text-text-primary">Custom Color...</span>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex items-center">
-              <button onClick={() => setShowColorPicker(true)} className="px-3.5 py-2.5 text-[13px] text-text-primary hover:bg-bg-hover flex items-center gap-1.5 border-r border-border">
-                <span className="w-3 h-3 rounded-full bg-highlight-yellow border border-yellow-500/50"></span>
+            ) : (
+            <div className={`flex ${isMobile ? 'flex-col p-2 gap-1 pb-6' : 'items-center'}`}>
+              <button onClick={() => setShowColorPicker(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
+                <span className={`${isMobile ? 'w-5 h-5' : 'w-3 h-3'} rounded-full bg-highlight-yellow border border-yellow-500/50`}></span>
                 Highlight
               </button>
-              <button onClick={() => setShowNoteSheet(true)} className="px-3.5 py-2.5 text-[13px] text-text-primary hover:bg-bg-hover flex items-center gap-1.5 border-r border-border">
-                <PenTool size={14} /> Note
+              <button onClick={() => setShowNoteSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
+                <PenTool size={isMobile ? 18 : 14} /> Note
               </button>
-              <button onClick={() => navigate('/journal')} className="px-3.5 py-2.5 text-[13px] text-text-primary hover:bg-bg-hover flex items-center gap-1.5 border-r border-border">
-                <BookOpen size={14} /> Journal
+              <button onClick={() => navigate('/journal')} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
+                <BookOpen size={isMobile ? 18 : 14} /> Journal
               </button>
-              <button onClick={() => setSelectedWords([])} className="px-3.5 py-2.5 text-[13px] text-text-primary hover:bg-bg-hover">
-                Copy
+              <button onClick={handleCopy} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5'} text-text-primary hover:bg-bg-hover flex items-center`}>
+                <Copy size={isMobile ? 18 : 14} /> Copy
               </button>
             </div>
           )}
+          </div>
+        </>
+      )}
+
+      {/* Success Toast */}
+      {showToast && (
+        <div className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-gold" />
+            <span className="text-[14px] text-text-primary font-medium">Copied to clipboard</span>
+          </div>
         </div>
       )}
 
