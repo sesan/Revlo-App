@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
@@ -63,6 +63,20 @@ export default function Bible() {
   const [noteText, setNoteText] = useState('');
   const [highlights, setHighlights] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showFloatingNav, setShowFloatingNav] = useState(true);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Hide floating nav when within 250px of the bottom
+      const isNearBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 250;
+      setShowFloatingNav(!isNearBottom);
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial check
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchPassage = async () => {
@@ -238,9 +252,12 @@ export default function Bible() {
             setSelectorBook(null);
             setShowSelector(true);
           }}
-          className="font-bold tracking-tighter text-[18px] text-text-primary hover:text-text-muted transition-colors"
+          className="flex items-center gap-1.5 bg-bg-surface px-4 py-1.5 rounded-full border border-border hover:border-text-muted transition-colors"
         >
-          {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
+          <span className="font-bold tracking-tighter text-[16px] text-text-primary">
+            {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
+          </span>
+          <ChevronDown size={16} className="text-text-muted" />
         </button>
         
         <button 
@@ -250,6 +267,25 @@ export default function Bible() {
           <Type size={20} />
         </button>
       </div>
+
+      {/* Floating Navigation */}
+      {!loading && currentPassage && (
+        <div className={`fixed inset-y-0 left-2 right-2 max-w-4xl mx-auto flex items-center justify-between pointer-events-none z-30 transition-opacity duration-300 ${showFloatingNav ? 'opacity-100' : 'opacity-0'}`}>
+          <button 
+            onClick={handlePrevChapter}
+            disabled={currentPassage.chapter === '1'}
+            className="pointer-events-auto w-10 h-10 rounded-full bg-bg-elevated/90 backdrop-blur border border-border flex items-center justify-center text-text-primary shadow-sm disabled:opacity-0 transition-all hover:bg-bg-hover hover:scale-105 active:scale-95"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <button 
+            onClick={handleNextChapter}
+            className="pointer-events-auto w-10 h-10 rounded-full bg-bg-elevated/90 backdrop-blur border border-border flex items-center justify-center text-text-primary shadow-sm transition-all hover:bg-bg-hover hover:scale-105 active:scale-95"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+      )}
 
       {/* Reader Content */}
       <div className="flex-1 max-w-2xl mx-auto w-full px-6 py-8">
