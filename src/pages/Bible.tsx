@@ -484,7 +484,9 @@ export default function Bible() {
                           onMouseDown={(e) => handlePointerDown(e, v.verse.toString(), i)}
                           className={`relative cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/30' : ''}`}
                           style={{
-                            backgroundColor: highlightColor && !isSelected ? `var(--color-highlight-${highlightColor})` : undefined
+                            backgroundColor: highlightColor && !isSelected 
+                              ? (highlightColor.startsWith('#') ? highlightColor : `var(--color-highlight-${highlightColor})`) 
+                              : undefined
                           }}
                         >
                           {isFirstSelected && (
@@ -622,17 +624,29 @@ export default function Bible() {
           }}
         >
           {showColorPicker ? (
-            <div className="flex p-3 gap-3">
+            <div className="flex p-3 gap-3 items-center">
               {['yellow', 'blue', 'green', 'pink', 'red'].map(color => (
                 <button
                   key={color}
                   onClick={() => handleHighlight(color)}
-                  className="w-7 h-7 rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-elevated"
+                  className="w-7 h-7 rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-elevated shrink-0"
                   style={{ backgroundColor: `var(--color-highlight-${color})` }}
                   aria-label={`Highlight ${color}`}
                 />
               ))}
-              <button onClick={() => setShowColorPicker(false)} className="ml-2 text-text-muted">
+              
+              <div className="relative w-7 h-7 rounded-full border border-border overflow-hidden shrink-0 cursor-pointer shadow-sm" title="Custom color">
+                <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
+                <input 
+                  type="color" 
+                  className="absolute inset-[-10px] w-[50px] h-[50px] cursor-pointer opacity-0"
+                  onChange={(e) => handleHighlight(e.target.value)}
+                />
+              </div>
+
+              <div className="w-[1px] h-6 bg-border mx-1"></div>
+
+              <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors">
                 <X size={20} />
               </button>
             </div>
