@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #FFFFFF;
+  --color-bg-surface: #F9F9F9;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-input: #F9F9F9;
+  --color-bg-hover: #F0F0F0;
+
+  --color-text-primary: #111111;
+  --color-text-secondary: #666666;
+  --color-text-muted: #999999;
+  --color-text-inverse: #FFFFFF;
+
+  --color-gold: #111111;
+  --color-gold-hover: #333333;
+  --color-gold-subtle: #F0F0F0;
+  --color-gold-border: #E5E5E5;
+
+  --color-success: #111111;
+  --color-error: #FF3B30;
+  --color-warning: #FF9500;
+
+  --color-highlight-yellow: rgba(255, 230, 0, 0.4);
+  --color-highlight-blue: rgba(0, 122, 255, 0.2);
+  --color-highlight-green: rgba(52, 199, 89, 0.2);
+  --color-highlight-pink: rgba(255, 45, 85, 0.2);
+  --color-highlight-red: rgba(255, 59, 48, 0.2);
+
+  --color-border: #E5E5E5;
+  --color-border-focus: #111111;
+
+  --font-sans: 'Inter', sans-serif;
+  --font-serif: 'Inter', sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-base text-text-primary font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans font-bold tracking-tighter leading-tight;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-surface border border-border rounded-2xl p-5;
+  }
+
+  .input-base {
+    @apply bg-bg-input border border-border rounded-xl px-4 py-3.5 text-text-primary text-base w-full focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-all;
+  }
+
+  .btn-primary {
+    @apply bg-text-primary text-text-inverse rounded-full px-8 py-3.5 font-sans font-medium text-[15px] hover:bg-gold-hover hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-base transition-all flex items-center justify-center;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-border text-text-primary rounded-full px-8 py-3.5 font-sans font-medium text-[15px] hover:bg-bg-hover focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-base transition-all flex items-center justify-center;
+  }
+}
