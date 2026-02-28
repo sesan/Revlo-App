@@ -57,7 +57,7 @@ export default function Bible() {
   const [selectorBook, setSelectorBook] = useState<{name: string, chapters: number} | null>(null);
 
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
-  const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
+  const [popupPos, setPopupPos] = useState({ x: 0, y: 0, bottomY: 0 });
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -165,14 +165,36 @@ export default function Bible() {
     return range;
   };
 
+  const updatePopupPosition = (selection: {verseId: string, wordIndex: number}[]) => {
+    if (selection.length === 0) return;
+    
+    const firstWord = selection[0];
+    const lastWord = selection[selection.length - 1];
+    
+    // Find the DOM elements for the first and last words
+    const firstEl = document.querySelector(`[data-verse-id="${firstWord.verseId}"][data-word-index="${firstWord.wordIndex}"]`);
+    const lastEl = document.querySelector(`[data-verse-id="${lastWord.verseId}"][data-word-index="${lastWord.wordIndex}"]`);
+    
+    if (firstEl && lastEl) {
+      const firstRect = firstEl.getBoundingClientRect();
+      const lastRect = lastEl.getBoundingClientRect();
+      
+      setPopupPos({ 
+        x: window.innerWidth / 2, 
+        y: firstRect.top - 10, 
+        bottomY: lastRect.bottom + 10 
+      });
+    }
+  };
+
   const handlePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
     const target = e.currentTarget as HTMLElement;
     longPressTimer.current = setTimeout(() => {
       setIsSelecting(true);
       setSelectionStart({ verseId, wordIndex });
-      setSelectedWords([{ verseId, wordIndex }]);
-      const rect = target.getBoundingClientRect();
-      setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+      const newSelection = [{ verseId, wordIndex }];
+      setSelectedWords(newSelection);
+      updatePopupPosition(newSelection);
       setShowColorPicker(false);
       if (navigator.vibrate) navigator.vibrate(50);
     }, 300);
@@ -201,13 +223,11 @@ export default function Bible() {
       if (draggingPin && selectionAnchor) {
         const newSelection = getWordsInRange(selectionAnchor, { verseId, wordIndex });
         setSelectedWords(newSelection);
-        const rect = element.getBoundingClientRect();
-        setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+        updatePopupPosition(newSelection);
       } else if (isSelecting && selectionStart) {
         const newSelection = getWordsInRange(selectionStart, { verseId, wordIndex });
         setSelectedWords(newSelection);
-        const rect = element.getBoundingClientRect();
-        setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+        updatePopupPosition(newSelection);
       }
     }
   };
@@ -219,31 +239,27 @@ export default function Bible() {
   };
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
+    e.stopPropagation();
     if (isSelecting) return;
     
-    let newSelection = [];
     if (selectedWords.length > 0) {
-      const start = selectedWords[0];
-      const clickedSameWord = selectedWords.length === 1 && start.verseId === verseId && start.wordIndex === wordIndex;
+      const isWordSelected = selectedWords.some(w => w.verseId === verseId && w.wordIndex === wordIndex);
       
-      if (clickedSameWord) {
+      if (isWordSelected) {
         setSelectedWords([]);
         return;
-      } else {
-        newSelection = getWordsInRange(start, { verseId, wordIndex });
       }
-    } else {
-      newSelection = [{ verseId, wordIndex }];
     }
     
-    setSelectedWords(newSelection);
+    const newSelection = [{ verseId, wordIndex }];
     
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    setSelectedWords(newSelection);
+    updatePopupPosition(newSelection);
     setShowColorPicker(false);
   };
 
   const handleVerseClick = (e: React.MouseEvent, verseId: string) => {
+    e.stopPropagation();
     if (!currentPassage) return;
     const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
     if (!verse) return;
@@ -255,9 +271,7 @@ export default function Bible() {
     }));
 
     setSelectedWords(newSelection);
-    
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    updatePopupPosition(newSelection);
     setShowColorPicker(false);
   };
 
@@ -431,7 +445,9 @@ export default function Bible() {
         onMouseUp={handlePointerUp}
         onMouseLeave={handlePointerUp}
         onClick={(e) => {
-          if (e.target === e.currentTarget) {
+          const target = e.target as HTMLElement;
+          // Clear selection if clicking outside a word and outside the popup menu
+          if (!target.closest('[data-verse-id]') && !target.closest('.fixed')) {
             setSelectedWords([]);
           }
         }}
@@ -617,41 +633,61 @@ export default function Bible() {
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && (
         <div 
-          className="fixed z-50 bg-bg-elevated border border-border rounded-xl shadow-2xl flex items-center overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          className="fixed z-50 bg-bg-elevated border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
           style={{ 
-            left: Math.max(10, Math.min(window.innerWidth - 280, popupPos.x - 140)), 
-            top: Math.max(60, popupPos.y - 60) 
+            left: Math.max(10, Math.min(window.innerWidth - (showColorPicker ? 240 : 280), popupPos.x - (showColorPicker ? 112 : 140))), 
+            ...(popupPos.y > window.innerHeight / 2
+              ? { bottom: Math.max(10, window.innerHeight - popupPos.y + 10) } 
+              : { top: Math.max(60, popupPos.bottomY) }
+            )
           }}
         >
           {showColorPicker ? (
-            <div className="flex p-3 gap-3 items-center">
-              {['yellow', 'blue', 'green', 'pink', 'red'].map(color => (
-                <button
-                  key={color}
-                  onClick={() => handleHighlight(color)}
-                  className="w-7 h-7 rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-elevated shrink-0"
-                  style={{ backgroundColor: `var(--color-highlight-${color})` }}
-                  aria-label={`Highlight ${color}`}
-                />
-              ))}
-              
-              <div className="relative w-7 h-7 rounded-full border border-border overflow-hidden shrink-0 cursor-pointer shadow-sm" title="Custom color">
-                <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
-                <input 
-                  type="color" 
-                  className="absolute inset-[-10px] w-[50px] h-[50px] cursor-pointer opacity-0"
-                  onChange={(e) => handleHighlight(e.target.value)}
-                />
+            <div className="flex flex-col w-56 max-h-[calc(100vh-120px)] overflow-y-auto">
+              <div className="flex justify-between items-center px-3 py-2 border-b border-border bg-bg-surface">
+                <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-wider">Highlight Theme</span>
+                <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
+                  <X size={14} />
+                </button>
               </div>
-
-              <div className="w-[1px] h-6 bg-border mx-1"></div>
-
-              <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors">
-                <X size={20} />
-              </button>
+              <div className="p-1.5 flex flex-col gap-0.5">
+                {[
+                  { color: 'yellow', label: 'God, Jesus, Holy Spirit' },
+                  { color: 'green', label: 'Growth, Encouragement' },
+                  { color: 'blue', label: 'Faith, Grace, Trust' },
+                  { color: 'red', label: 'Salvation, Sacrifice' },
+                  { color: 'pink', label: 'Love, Family, Relationships' },
+                ].map(theme => (
+                  <button
+                    key={theme.color}
+                    onClick={() => handleHighlight(theme.color)}
+                    className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-bg-hover transition-colors text-left group"
+                  >
+                    <div 
+                      className="w-4 h-4 rounded-full border border-border shrink-0 group-hover:scale-110 transition-transform"
+                      style={{ backgroundColor: `var(--color-highlight-${theme.color})` }}
+                    />
+                    <span className="text-[13px] text-text-primary">{theme.label}</span>
+                  </button>
+                ))}
+                
+                <div className="h-[1px] bg-border my-1 mx-2"></div>
+                
+                <div className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md hover:bg-bg-hover transition-colors text-left relative cursor-pointer group">
+                  <div className="w-4 h-4 rounded-full border border-border overflow-hidden shrink-0 shadow-sm relative group-hover:scale-110 transition-transform">
+                    <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
+                    <input 
+                      type="color" 
+                      className="absolute inset-[-10px] w-[40px] h-[40px] cursor-pointer opacity-0"
+                      onChange={(e) => handleHighlight(e.target.value)}
+                    />
+                  </div>
+                  <span className="text-[13px] text-text-primary">Custom Color...</span>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="flex">
+            <div className="flex items-center">
               <button onClick={() => setShowColorPicker(true)} className="px-3.5 py-2.5 text-[13px] text-text-primary hover:bg-bg-hover flex items-center gap-1.5 border-r border-border">
                 <span className="w-3 h-3 rounded-full bg-highlight-yellow border border-yellow-500/50"></span>
                 Highlight
