@@ -65,6 +65,10 @@ export default function Bible() {
   const [isRecording, setIsRecording] = useState(false);
   const [showFloatingNav, setShowFloatingNav] = useState(true);
 
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionStart, setSelectionStart] = useState<{verseId: string, wordIndex: number} | null>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     const handleScroll = () => {
       // Hide floating nav when within 250px of the bottom
@@ -128,7 +132,79 @@ export default function Bible() {
     }
   };
 
+  const getFlatIndex = (verseId: string, wordIndex: number) => {
+    if (!currentPassage) return -1;
+    let index = 0;
+    for (const v of currentPassage.verses) {
+      if (v.verse.toString() === verseId) return index + wordIndex;
+      index += v.text.split(' ').length;
+    }
+    return -1;
+  };
+
+  const getWordsInRange = (start: {verseId: string, wordIndex: number}, end: {verseId: string, wordIndex: number}) => {
+    if (!currentPassage) return [];
+    const startIndex = getFlatIndex(start.verseId, start.wordIndex);
+    const endIndex = getFlatIndex(end.verseId, end.wordIndex);
+    const min = Math.min(startIndex, endIndex);
+    const max = Math.max(startIndex, endIndex);
+
+    const range: {verseId: string, wordIndex: number}[] = [];
+    let currentIndex = 0;
+    for (const v of currentPassage.verses) {
+      const words = v.text.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        if (currentIndex >= min && currentIndex <= max) {
+          range.push({ verseId: v.verse.toString(), wordIndex: i });
+        }
+        currentIndex++;
+      }
+    }
+    return range;
+  };
+
+  const handlePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
+    const target = e.currentTarget as HTMLElement;
+    longPressTimer.current = setTimeout(() => {
+      setIsSelecting(true);
+      setSelectionStart({ verseId, wordIndex });
+      setSelectedWords([{ verseId, wordIndex }]);
+      const rect = target.getBoundingClientRect();
+      setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+      setShowColorPicker(false);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 300);
+  };
+
+  const handlePointerMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isSelecting) {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      return;
+    }
+    
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+
+    const element = document.elementFromPoint(clientX, clientY);
+    if (element && element.hasAttribute('data-verse-id')) {
+      const verseId = element.getAttribute('data-verse-id')!;
+      const wordIndex = parseInt(element.getAttribute('data-word-index')!, 10);
+      if (selectionStart) {
+        const newSelection = getWordsInRange(selectionStart, { verseId, wordIndex });
+        setSelectedWords(newSelection);
+        const rect = element.getBoundingClientRect();
+        setPopupPos({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+      }
+    }
+  };
+
+  const handlePointerUp = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    setIsSelecting(false);
+  };
+
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
+    if (isSelecting) return;
     const newSelection = [{ verseId, wordIndex }];
     setSelectedWords(newSelection);
     
@@ -288,7 +364,15 @@ export default function Bible() {
       )}
 
       {/* Reader Content */}
-      <div className="flex-1 max-w-2xl mx-auto w-full px-6 py-8">
+      <div 
+        className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 select-none"
+        style={{ touchAction: isSelecting ? 'none' : 'pan-y' }}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerUp}
+      >
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 text-text-muted">
             <Loader2 size={32} className="animate-spin mb-4 text-text-primary" />
@@ -324,7 +408,11 @@ export default function Bible() {
                       return (
                         <span
                           key={i}
+                          data-verse-id={v.verse.toString()}
+                          data-word-index={i}
                           onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
+                          onTouchStart={(e) => handlePointerDown(e, v.verse.toString(), i)}
+                          onMouseDown={(e) => handlePointerDown(e, v.verse.toString(), i)}
                           className={`mr-1 cursor-pointer transition-colors rounded-sm px-0.5 -mx-0.5
                             ${isSelected ? 'border-b-2 border-text-primary bg-bg-hover' : ''}
                           `}
