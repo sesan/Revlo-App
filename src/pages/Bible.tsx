@@ -1,15 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen } from 'lucide-react';
-import { KJV_PASSAGES } from '../lib/data';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
 
+interface Verse {
+  verse: number;
+  text: string;
+}
+
+interface Passage {
+  id: string;
+  book: string;
+  chapter: string;
+  verses: Verse[];
+}
+
 export default function Bible() {
-  const { book, chapter } = useParams();
+  const { book = 'John', chapter = '3' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  
+  const [currentPassage, setCurrentPassage] = useState<Passage | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   
   const [textSize, setTextSize] = useState(17);
   const [showSelector, setShowSelector] = useState(false);
@@ -20,10 +35,35 @@ export default function Bible() {
   const [noteText, setNoteText] = useState('');
   const [highlights, setHighlights] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  
-  const currentPassage = KJV_PASSAGES.find(
-    p => p.book.toLowerCase() === book?.toLowerCase() && p.chapter.toString() === chapter
-  ) || KJV_PASSAGES[0];
+
+  useEffect(() => {
+    const fetchPassage = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await fetch(`https://bible-api.com/${book}+${chapter}?translation=web`);
+        if (!response.ok) throw new Error('Failed to fetch passage');
+        const data = await response.json();
+        
+        setCurrentPassage({
+          id: `${data.verses[0].book_id}-${data.verses[0].chapter}`,
+          book: data.verses[0].book_name,
+          chapter: data.verses[0].chapter.toString(),
+          verses: data.verses.map((v: any) => ({
+            verse: v.verse,
+            text: v.text.trim()
+          }))
+        });
+      } catch (err) {
+        console.error('Error fetching Bible passage:', err);
+        setError('Failed to load Bible passage. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPassage();
+  }, [book, chapter]);
 
   useEffect(() => {
     if (user && currentPassage) {
@@ -33,11 +73,11 @@ export default function Bible() {
 
   const fetchHighlights = async () => {
     try {
-      // In a real app we would query by passage_id, but here we mock it with the first verse's ID
       const { data, error } = await supabase
         .from('highlights')
         .select('*')
-        .eq('user_id', user?.id);
+        .eq('user_id', user?.id)
+        .eq('passage_id', currentPassage?.id);
         
       if (error) throw error;
       setHighlights(data || []);
@@ -47,7 +87,6 @@ export default function Bible() {
   };
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
-    // Simple selection logic for prototype
     const newSelection = [{ verseId, wordIndex }];
     setSelectedWords(newSelection);
     
@@ -57,14 +96,14 @@ export default function Bible() {
   };
 
   const handleHighlight = async (color: string) => {
-    if (!user || selectedWords.length === 0) return;
+    if (!user || selectedWords.length === 0 || !currentPassage) return;
     
     try {
       const { verseId, wordIndex } = selectedWords[0];
       
       const newHighlight = {
         user_id: user.id,
-        passage_id: currentPassage.id, // Using the passage group ID for simplicity
+        passage_id: currentPassage.id,
         word_start: wordIndex,
         word_end: wordIndex,
         color: color
@@ -80,7 +119,7 @@ export default function Bible() {
   };
 
   const handleSaveNote = async () => {
-    if (!user || !noteText.trim()) return;
+    if (!user || !noteText.trim() || !currentPassage) return;
     
     try {
       await supabase.from('notes').insert([{
@@ -99,7 +138,7 @@ export default function Bible() {
   };
 
   const handleBookmark = async () => {
-    if (!user) return;
+    if (!user || !currentPassage) return;
     try {
       await supabase.from('notes').insert([{
         user_id: user.id,
@@ -116,15 +155,17 @@ export default function Bible() {
   const toggleRecording = () => {
     if (isRecording) {
       setIsRecording(false);
-      // Mock transcription
-      setNoteText("This is a transcribed voice note about " + currentPassage.book + " " + currentPassage.chapter);
-      setShowNoteSheet(true);
+      if (currentPassage) {
+        setNoteText(`This is a transcribed voice note about ${currentPassage.book} ${currentPassage.chapter}`);
+        setShowNoteSheet(true);
+      }
     } else {
       setIsRecording(true);
     }
   };
 
   const isWordHighlighted = (wordIndex: number) => {
+    if (!currentPassage) return null;
     const highlight = highlights.find(h => 
       h.passage_id === currentPassage.id && 
       wordIndex >= h.word_start && 
@@ -137,11 +178,25 @@ export default function Bible() {
     return selectedWords.some(w => w.verseId === verseId && w.wordIndex === wordIndex);
   };
 
+  const handlePrevChapter = () => {
+    if (!currentPassage) return;
+    const prevChap = parseInt(currentPassage.chapter) - 1;
+    if (prevChap > 0) {
+      navigate(`/bible/${currentPassage.book}/${prevChap}`);
+    }
+  };
+
+  const handleNextChapter = () => {
+    if (!currentPassage) return;
+    const nextChap = parseInt(currentPassage.chapter) + 1;
+    navigate(`/bible/${currentPassage.book}/${nextChap}`);
+  };
+
   return (
     <div className="min-h-screen bg-bg-base flex flex-col relative pb-[120px]">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-bg-base/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-text-primary">
+        <button onClick={() => navigate('/home')} className="p-2 -ml-2 text-text-primary">
           <ArrowLeft size={24} />
         </button>
         
@@ -149,11 +204,11 @@ export default function Bible() {
           onClick={() => setShowSelector(true)}
           className="font-bold tracking-tighter text-[18px] text-text-primary"
         >
-          {currentPassage.book} {currentPassage.chapter}
+          {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
         </button>
         
         <button 
-          onClick={() => setTextSize(s => s === 24 ? 15 : s + 2)}
+          onClick={() => setTextSize(s => s >= 24 ? 15 : s + 2)}
           className="p-2 -mr-2 text-text-primary"
         >
           <Type size={20} />
@@ -162,43 +217,78 @@ export default function Bible() {
 
       {/* Reader Content */}
       <div className="flex-1 max-w-2xl mx-auto w-full px-6 py-8">
-        <h1 className="font-bold tracking-tighter text-[32px] text-text-primary mb-8">
-          {currentPassage.book} {currentPassage.chapter}
-        </h1>
-        
-        <div className="space-y-6">
-          {currentPassage.verses.map((v) => (
-            <div key={v.verse} className="flex items-start">
-              <span className="text-[11px] text-gold font-medium mr-2 mt-1.5 select-none">
-                {v.verse}
-              </span>
-              <p 
-                className="text-text-primary leading-[1.8] flex-1 flex flex-wrap"
-                style={{ fontSize: `${textSize}px` }}
-              >
-                {v.text.split(' ').map((word, i) => {
-                  const highlightColor = isWordHighlighted(i);
-                  const isSelected = isWordSelected(v.verse.toString(), i);
-                  
-                  return (
-                    <span
-                      key={i}
-                      onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
-                      className={`mr-1 cursor-pointer transition-colors rounded-sm px-0.5 -mx-0.5
-                        ${isSelected ? 'border-b-2 border-gold bg-gold/10' : ''}
-                      `}
-                      style={{
-                        backgroundColor: highlightColor ? `var(--color-highlight-${highlightColor})` : undefined
-                      }}
-                    >
-                      {word}
-                    </span>
-                  );
-                })}
-              </p>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-text-muted">
+            <Loader2 size={32} className="animate-spin mb-4 text-text-primary" />
+            <p className="text-[14px]">Loading World English Bible (WEB)...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <p className="text-error mb-4">{error}</p>
+            <button onClick={() => window.location.reload()} className="btn-secondary">
+              Try Again
+            </button>
+          </div>
+        ) : currentPassage ? (
+          <>
+            <h1 className="font-bold tracking-tighter text-[32px] text-text-primary mb-8">
+              {currentPassage.book} {currentPassage.chapter}
+            </h1>
+            
+            <div className="space-y-6 mb-12">
+              {currentPassage.verses.map((v) => (
+                <div key={v.verse} className="flex items-start">
+                  <span className="text-[11px] text-text-muted font-medium mr-2 mt-1.5 select-none min-w-[16px]">
+                    {v.verse}
+                  </span>
+                  <p 
+                    className="text-text-primary leading-[1.8] flex-1 flex flex-wrap"
+                    style={{ fontSize: `${textSize}px` }}
+                  >
+                    {v.text.split(' ').map((word, i) => {
+                      const highlightColor = isWordHighlighted(i);
+                      const isSelected = isWordSelected(v.verse.toString(), i);
+                      
+                      return (
+                        <span
+                          key={i}
+                          onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
+                          className={`mr-1 cursor-pointer transition-colors rounded-sm px-0.5 -mx-0.5
+                            ${isSelected ? 'border-b-2 border-text-primary bg-bg-hover' : ''}
+                          `}
+                          style={{
+                            backgroundColor: highlightColor ? `var(--color-highlight-${highlightColor})` : undefined
+                          }}
+                        >
+                          {word}
+                        </span>
+                      );
+                    })}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {/* Chapter Navigation */}
+            <div className="flex justify-between items-center pt-8 border-t border-border">
+              <button 
+                onClick={handlePrevChapter}
+                disabled={currentPassage.chapter === '1'}
+                className="flex items-center gap-2 text-[14px] font-medium text-text-primary hover:text-text-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={20} />
+                Previous
+              </button>
+              <button 
+                onClick={handleNextChapter}
+                className="flex items-center gap-2 text-[14px] font-medium text-text-primary hover:text-text-muted transition-colors"
+              >
+                Next
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </>
+        ) : null}
       </div>
 
       {/* Popup Action Menu */}
@@ -216,7 +306,7 @@ export default function Bible() {
                 <button
                   key={color}
                   onClick={() => handleHighlight(color)}
-                  className="w-7 h-7 rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2 focus:ring-offset-bg-elevated"
+                  className="w-7 h-7 rounded-full border border-border focus:outline-none focus:ring-2 focus:ring-text-primary focus:ring-offset-2 focus:ring-offset-bg-elevated"
                   style={{ backgroundColor: `var(--color-highlight-${color})` }}
                   aria-label={`Highlight ${color}`}
                 />
@@ -246,11 +336,11 @@ export default function Bible() {
       )}
 
       {/* Add Note Bottom Sheet */}
-      {showNoteSheet && (
+      {showNoteSheet && currentPassage && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-md bg-bg-elevated rounded-t-2xl sm:rounded-2xl border border-border p-5 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-[15px] font-medium text-gold">
+              <h3 className="text-[15px] font-bold tracking-tighter text-text-primary">
                 {currentPassage.book} {currentPassage.chapter}
               </h3>
               <button onClick={() => setShowNoteSheet(false)} className="text-text-muted hover:text-text-primary">
@@ -263,7 +353,7 @@ export default function Bible() {
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write your note..."
-                className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold resize-none"
+                className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none"
                 autoFocus
               />
               <span className="absolute bottom-3 right-3 text-[11px] text-text-muted">
