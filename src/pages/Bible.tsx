@@ -5,6 +5,31 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
 
+const BIBLE_BOOKS = [
+  { name: 'Genesis', chapters: 50 }, { name: 'Exodus', chapters: 40 }, { name: 'Leviticus', chapters: 27 },
+  { name: 'Numbers', chapters: 36 }, { name: 'Deuteronomy', chapters: 34 }, { name: 'Joshua', chapters: 24 },
+  { name: 'Judges', chapters: 21 }, { name: 'Ruth', chapters: 4 }, { name: '1 Samuel', chapters: 31 },
+  { name: '2 Samuel', chapters: 24 }, { name: '1 Kings', chapters: 22 }, { name: '2 Kings', chapters: 25 },
+  { name: '1 Chronicles', chapters: 29 }, { name: '2 Chronicles', chapters: 36 }, { name: 'Ezra', chapters: 10 },
+  { name: 'Nehemiah', chapters: 13 }, { name: 'Esther', chapters: 10 }, { name: 'Job', chapters: 42 },
+  { name: 'Psalms', chapters: 150 }, { name: 'Proverbs', chapters: 31 }, { name: 'Ecclesiastes', chapters: 12 },
+  { name: 'Song of Solomon', chapters: 8 }, { name: 'Isaiah', chapters: 66 }, { name: 'Jeremiah', chapters: 52 },
+  { name: 'Lamentations', chapters: 5 }, { name: 'Ezekiel', chapters: 48 }, { name: 'Daniel', chapters: 12 },
+  { name: 'Hosea', chapters: 14 }, { name: 'Joel', chapters: 3 }, { name: 'Amos', chapters: 9 },
+  { name: 'Obadiah', chapters: 1 }, { name: 'Jonah', chapters: 4 }, { name: 'Micah', chapters: 7 },
+  { name: 'Nahum', chapters: 3 }, { name: 'Habakkuk', chapters: 3 }, { name: 'Zephaniah', chapters: 3 },
+  { name: 'Haggai', chapters: 2 }, { name: 'Zechariah', chapters: 14 }, { name: 'Malachi', chapters: 4 },
+  { name: 'Matthew', chapters: 28 }, { name: 'Mark', chapters: 16 }, { name: 'Luke', chapters: 24 },
+  { name: 'John', chapters: 21 }, { name: 'Acts', chapters: 28 }, { name: 'Romans', chapters: 16 },
+  { name: '1 Corinthians', chapters: 16 }, { name: '2 Corinthians', chapters: 13 }, { name: 'Galatians', chapters: 6 },
+  { name: 'Ephesians', chapters: 6 }, { name: 'Philippians', chapters: 4 }, { name: 'Colossians', chapters: 4 },
+  { name: '1 Thessalonians', chapters: 5 }, { name: '2 Thessalonians', chapters: 3 }, { name: '1 Timothy', chapters: 6 },
+  { name: '2 Timothy', chapters: 4 }, { name: 'Titus', chapters: 3 }, { name: 'Philemon', chapters: 1 },
+  { name: 'Hebrews', chapters: 13 }, { name: 'James', chapters: 5 }, { name: '1 Peter', chapters: 5 },
+  { name: '2 Peter', chapters: 3 }, { name: '1 John', chapters: 5 }, { name: '2 John', chapters: 1 },
+  { name: '3 John', chapters: 1 }, { name: 'Jude', chapters: 1 }, { name: 'Revelation', chapters: 22 }
+];
+
 interface Verse {
   verse: number;
   text: string;
@@ -28,6 +53,9 @@ export default function Bible() {
   
   const [textSize, setTextSize] = useState(17);
   const [showSelector, setShowSelector] = useState(false);
+  const [selectorSearch, setSelectorSearch] = useState('');
+  const [selectorBook, setSelectorBook] = useState<{name: string, chapters: number} | null>(null);
+
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -192,6 +220,10 @@ export default function Bible() {
     navigate(`/bible/${currentPassage.book}/${nextChap}`);
   };
 
+  const filteredBooks = BIBLE_BOOKS.filter(b => 
+    b.name.toLowerCase().includes(selectorSearch.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-bg-base flex flex-col relative pb-[120px]">
       {/* Top Bar */}
@@ -201,8 +233,12 @@ export default function Bible() {
         </button>
         
         <button 
-          onClick={() => setShowSelector(true)}
-          className="font-bold tracking-tighter text-[18px] text-text-primary"
+          onClick={() => {
+            setSelectorSearch('');
+            setSelectorBook(null);
+            setShowSelector(true);
+          }}
+          className="font-bold tracking-tighter text-[18px] text-text-primary hover:text-text-muted transition-colors"
         >
           {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
         </button>
@@ -290,6 +326,78 @@ export default function Bible() {
           </>
         ) : null}
       </div>
+
+      {/* Book/Chapter Selector Modal */}
+      {showSelector && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-bg-base animate-in slide-in-from-bottom-full duration-200">
+          <div className="flex items-center justify-between p-4 border-b border-border bg-bg-base">
+            <div className="flex items-center gap-3">
+              {selectorBook ? (
+                <button onClick={() => setSelectorBook(null)} className="p-2 -ml-2 text-text-primary">
+                  <ArrowLeft size={24} />
+                </button>
+              ) : null}
+              <h2 className="text-[18px] font-bold tracking-tighter text-text-primary">
+                {selectorBook ? selectorBook.name : 'Select Book'}
+              </h2>
+            </div>
+            <button 
+              onClick={() => { setShowSelector(false); setSelectorBook(null); }} 
+              className="p-2 -mr-2 text-text-muted hover:text-text-primary"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4">
+            {!selectorBook ? (
+              <>
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Search books..." 
+                    value={selectorSearch}
+                    onChange={(e) => setSelectorSearch(e.target.value)}
+                    className="w-full bg-bg-input border border-border rounded-xl py-3 pl-10 pr-4 text-[15px] text-text-primary focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary"
+                  />
+                </div>
+                <div className="space-y-1 pb-20">
+                  {filteredBooks.map(book => (
+                    <button 
+                      key={book.name}
+                      onClick={() => setSelectorBook(book)}
+                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-bg-hover text-left transition-colors"
+                    >
+                      <span className="text-[16px] font-medium text-text-primary">{book.name}</span>
+                      <span className="text-[13px] text-text-muted">{book.chapters} ch</span>
+                    </button>
+                  ))}
+                  {filteredBooks.length === 0 && (
+                    <p className="text-center text-text-muted py-8 text-[14px]">No books found matching "{selectorSearch}"</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-5 gap-2 pb-20">
+                {Array.from({ length: selectorBook.chapters }, (_, i) => i + 1).map(chapter => (
+                  <button
+                    key={chapter}
+                    onClick={() => {
+                      navigate(`/bible/${selectorBook.name}/${chapter}`);
+                      setShowSelector(false);
+                      setSelectorBook(null);
+                    }}
+                    className="aspect-square flex items-center justify-center rounded-xl border border-border bg-bg-surface hover:bg-bg-hover hover:border-text-primary text-[16px] font-medium text-text-primary transition-colors"
+                  >
+                    {chapter}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && (
