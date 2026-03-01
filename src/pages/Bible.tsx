@@ -1030,30 +1030,6 @@ export default function Bible() {
         </div>
       )}
 
-      {/* Bottom Toolbar */}
-      <div className="fixed bottom-[60px] left-0 right-0 bg-bg-elevated border-t border-border z-40">
-        <div className="flex justify-around items-center h-14 max-w-md mx-auto px-2">
-          <button 
-            onClick={toggleRecording}
-            className={`p-2 rounded-full transition-colors ${isRecording ? 'text-error bg-error/10 animate-pulse' : 'text-text-primary hover:bg-bg-hover'}`}
-          >
-            <Mic size={24} />
-          </button>
-          <button onClick={() => setShowJournalSheet(true)} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
-            <PenTool size={24} />
-          </button>
-          <button onClick={() => navigate('/notes')} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
-            <ClipboardList size={24} />
-          </button>
-          <button onClick={() => navigate('/notes')} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
-            <Search size={24} />
-          </button>
-          <button onClick={handleBookmark} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
-            <Bookmark size={24} />
-          </button>
-        </div>
-      </div>
-
       <BottomNav />
     </div>
   );
