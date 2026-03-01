@@ -15,6 +15,8 @@ export default function Notes() {
   const [filteredNotes, setFilteredNotes] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +51,14 @@ export default function Notes() {
 
       if (error) throw error;
       setNotes(data || []);
+      
+      // Extract unique tags
+      const tags = new Set<string>();
+      data?.forEach((note: any) => {
+        note.tags?.forEach((tag: string) => tags.add(tag));
+      });
+      setAllTags(Array.from(tags).sort());
+      
     } catch (err) {
       console.error('Error fetching notes:', err);
     } finally {
@@ -82,7 +92,45 @@ export default function Notes() {
       });
     }
 
+    // Apply tag filter
+    if (selectedTag) {
+      result = result.filter(n => n.tags?.includes(selectedTag));
+    }
+
     setFilteredNotes(result);
+  };
+
+  const handleAddTag = async (noteId: string, currentTags: string[]) => {
+    const tag = window.prompt('Enter a tag:');
+    if (!tag || !tag.trim()) return;
+    
+    const newTag = tag.trim();
+    if (currentTags?.includes(newTag)) return;
+    
+    const updatedTags = [...(currentTags || []), newTag];
+    
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({ tags: updatedTags })
+        .eq('id', noteId);
+        
+      if (error) throw error;
+      
+      // Update local state
+      const updatedNotes = notes.map(n => 
+        n.id === noteId ? { ...n, tags: updatedTags } : n
+      );
+      setNotes(updatedNotes);
+      
+      // Update allTags if new tag
+      if (!allTags.includes(newTag)) {
+        setAllTags([...allTags, newTag].sort());
+      }
+    } catch (err) {
+      console.error('Error adding tag:', err);
+      alert('Failed to add tag');
+    }
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -135,20 +183,52 @@ export default function Notes() {
         </div>
 
         {/* Filter Chips */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-2 scrollbar-hide">
-          {(['All', 'Highlights', 'Notes', 'Journal', 'Voice', 'Bookmarks'] as FilterType[]).map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveFilter(filter)}
-              className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
-                activeFilter === filter
-                  ? 'bg-gold text-text-inverse border-gold'
-                  : 'bg-transparent text-gold border-gold-border hover:bg-gold/10'
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
+        <div className="flex flex-col gap-2 mb-4">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {(['All', 'Highlights', 'Notes', 'Journal', 'Voice', 'Bookmarks'] as FilterType[]).map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter)}
+                className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
+                  activeFilter === filter
+                    ? 'bg-gold text-text-inverse border-gold'
+                    : 'bg-transparent text-gold border-gold-border hover:bg-gold/10'
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+          
+          {/* Tag Filters */}
+          {allTags.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <span className="text-[11px] text-text-muted self-center mr-1">Tags:</span>
+              <button
+                onClick={() => setSelectedTag(null)}
+                className={`px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors border ${
+                  selectedTag === null
+                    ? 'bg-text-secondary text-text-inverse border-text-secondary'
+                    : 'bg-transparent text-text-secondary border-border hover:bg-bg-hover'
+                }`}
+              >
+                All
+              </button>
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors border ${
+                    selectedTag === tag
+                      ? 'bg-text-secondary text-text-inverse border-text-secondary'
+                      : 'bg-transparent text-text-secondary border-border hover:bg-bg-hover'
+                  }`}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Notes Feed */}
@@ -166,9 +246,15 @@ export default function Notes() {
                   className="bg-bg-surface border border-border rounded-2xl p-4 cursor-pointer hover:bg-bg-hover transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[13px] font-medium text-gold">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/bible/${note.book}/${note.chapter}?verse=${note.verse}`);
+                      }}
+                      className="text-[13px] font-medium text-gold hover:underline text-left"
+                    >
                       {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
-                    </span>
+                    </button>
                     <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}
                     </span>
@@ -181,12 +267,22 @@ export default function Notes() {
                   <div className="flex justify-between items-center mt-auto pt-2">
                     <div className="flex gap-1.5 flex-wrap">
                       {note.tags?.map((tag: string) => (
-                        <span key={tag} className="bg-bg-elevated border border-border text-text-muted text-[11px] px-2 py-0.5 rounded-full">
+                        <span 
+                          key={tag} 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedTag(tag);
+                          }}
+                          className={`bg-bg-elevated border border-border text-[11px] px-2 py-0.5 rounded-full hover:border-gold hover:text-gold transition-colors ${selectedTag === tag ? 'border-gold text-gold' : 'text-text-muted'}`}
+                        >
                           #{tag}
                         </span>
                       ))}
                       <button 
-                        onClick={(e) => { e.stopPropagation(); /* Add tag logic */ }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          handleAddTag(note.id, note.tags);
+                        }}
                         className="bg-bg-elevated border border-border text-text-muted hover:text-gold text-[11px] px-2 py-0.5 rounded-full flex items-center"
                       >
                         <Plus size={12} />

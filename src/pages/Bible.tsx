@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
@@ -66,7 +66,10 @@ export default function Bible() {
   const [showJournalSheet, setShowJournalSheet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [noteTags, setNoteTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
   const [highlights, setHighlights] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showFloatingNav, setShowFloatingNav] = useState(true);
   
@@ -80,6 +83,7 @@ export default function Bible() {
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStartPos = useRef<{x: number, y: number} | null>(null);
   const justFinishedSelection = useRef(false);
+  const verseRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
 
   useEffect(() => {
     const handleScroll = () => {
@@ -133,22 +137,48 @@ export default function Bible() {
 
   useEffect(() => {
     if (user && currentPassage) {
-      fetchHighlights();
+      fetchUserData();
     }
   }, [user, currentPassage]);
 
-  const fetchHighlights = async () => {
+  // Scroll to verse if query param exists
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verseParam = params.get('verse');
+    if (verseParam && !loading && currentPassage && verseRefs.current[verseParam]) {
+      setTimeout(() => {
+        verseRefs.current[verseParam]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Optional: Highlight the verse temporarily
+        verseRefs.current[verseParam]?.classList.add('bg-gold/20');
+        setTimeout(() => {
+          verseRefs.current[verseParam]?.classList.remove('bg-gold/20');
+        }, 2000);
+      }, 500);
+    }
+  }, [loading, currentPassage]);
+
+  const fetchUserData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('highlights')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('passage_id', currentPassage?.id);
+      const [highlightsRes, notesRes] = await Promise.all([
+        supabase
+          .from('highlights')
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('passage_id', currentPassage?.id),
+        supabase
+          .from('notes')
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('passage_id', currentPassage?.id)
+      ]);
         
-      if (error) throw error;
-      setHighlights(data || []);
+      if (highlightsRes.error) throw highlightsRes.error;
+      if (notesRes.error) throw notesRes.error;
+
+      setHighlights(highlightsRes.data || []);
+      setNotes(notesRes.data || []);
     } catch (err) {
-      console.error('Error fetching highlights:', err);
+      console.error('Error fetching user data:', err);
     }
   };
 
@@ -534,11 +564,14 @@ export default function Bible() {
         chapter: currentPassage.chapter,
         verse: selectedWords.length > 0 ? selectedWords[0].verseId : null,
         content: noteText,
-        type: 'note'
+        type: 'note',
+        tags: noteTags
       }]);
       
       setShowNoteSheet(false);
       setNoteText('');
+      setNoteTags([]);
+      setTagInput('');
       setSelectedWords([]);
     } catch (err) {
       console.error('Error saving note:', err);
@@ -708,20 +741,35 @@ export default function Bible() {
             </h1>
             
             <div className="space-y-6 mb-12">
-              {currentPassage.verses.map((v) => (
-                <div key={v.verse} className="flex items-start mb-2">
-                  <span 
-                    onClick={(e) => handleVerseClick(e, v.verse.toString())}
-                    onTouchStart={(e) => handleVersePointerDown(e, v.verse.toString())}
-                    onMouseDown={(e) => handleVersePointerDown(e, v.verse.toString())}
-                    className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium mr-2 mt-1.5 select-none min-w-[16px] shrink-0"
-                  >
-                    {v.verse}
-                  </span>
+              {currentPassage.verses.map((v) => {
+                const hasNote = notes.some(n => n.verse === v.verse.toString() && n.type === 'note');
+                return (
                   <div 
-                    className="text-text-primary leading-[1.8] flex-1"
-                    style={{ fontSize: `${textSize}px` }}
+                    key={v.verse} 
+                    className="flex items-start mb-2 transition-colors duration-500 rounded-lg px-1 -mx-1"
+                    ref={el => {
+                      if (el) verseRefs.current[v.verse.toString()] = el;
+                    }}
                   >
+                    <div className="flex flex-col items-center mr-2 mt-1.5 min-w-[16px] shrink-0">
+                      <span 
+                        onClick={(e) => handleVerseClick(e, v.verse.toString())}
+                        onTouchStart={(e) => handleVersePointerDown(e, v.verse.toString())}
+                        onMouseDown={(e) => handleVersePointerDown(e, v.verse.toString())}
+                        className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium select-none"
+                      >
+                        {v.verse}
+                      </span>
+                      {hasNote && (
+                        <div className="mt-1">
+                          <MessageSquare size={10} className="text-gold fill-gold" />
+                        </div>
+                      )}
+                    </div>
+                    <div 
+                      className="text-text-primary leading-[1.8] flex-1"
+                      style={{ fontSize: `${textSize}px` }}
+                    >
                     {v.text.split(' ').map((word, i, arr) => {
                       const highlightColor = isWordHighlighted(v.verse.toString(), i);
                       const isSelected = isWordSelected(v.verse.toString(), i);
@@ -772,7 +820,8 @@ export default function Bible() {
                     })}
                   </div>
                 </div>
-              ))}
+              );
+            })}
             </div>
 
             {/* Chapter Navigation */}
@@ -953,7 +1002,16 @@ export default function Bible() {
                 Highlight
               </button>
               <button onClick={() => setShowNoteSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
-                <PenTool size={isMobile ? 18 : 14} /> Note
+                {selectedWords.length > 0 && notes.some(n => n.verse === selectedWords[0].verseId) ? (
+                  <>
+                    <MessageSquare size={isMobile ? 18 : 14} className="text-gold fill-gold" /> 
+                    <span className="text-gold font-medium">Check Notes</span>
+                  </>
+                ) : (
+                  <>
+                    <PenTool size={isMobile ? 18 : 14} /> Note
+                  </>
+                )}
               </button>
               <button onClick={() => setShowJournalSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 <BookOpen size={isMobile ? 18 : 14} /> Journal
@@ -999,23 +1057,87 @@ export default function Bible() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-[15px] font-bold tracking-tighter text-text-primary">
                 {currentPassage.book} {currentPassage.chapter}
+                {selectedWords.length > 0 && `:${selectedWords[0].verseId}`}
               </h3>
               <button onClick={() => setShowNoteSheet(false)} className="text-text-muted hover:text-text-primary">
                 <X size={20} />
               </button>
             </div>
+
+            {/* Existing Notes List */}
+            {selectedWords.length > 0 && notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').length > 0 && (
+              <div className="mb-4 space-y-3">
+                <h4 className="text-[12px] font-semibold text-text-secondary uppercase tracking-wider">Existing Notes</h4>
+                {notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').map(note => (
+                  <div key={note.id} className="bg-bg-surface border border-border rounded-xl p-3">
+                    <p className="text-[14px] text-text-primary whitespace-pre-wrap mb-2">{note.content}</p>
+                    {note.tags && note.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {note.tags.map((tag: string) => (
+                          <span key={tag} className="text-[10px] bg-bg-hover text-text-secondary px-1.5 py-0.5 rounded-full">#{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="h-[1px] bg-border my-4"></div>
+              </div>
+            )}
             
             <div className="relative mb-4">
               <textarea
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Write your note..."
-                className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none"
+                className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none mb-3"
                 autoFocus
               />
-              <span className="absolute bottom-3 right-3 text-[11px] text-text-muted">
+              <span className="absolute bottom-16 right-3 text-[11px] text-text-muted">
                 {noteText.length}
               </span>
+
+              {/* Tag Input */}
+              <div className="flex flex-wrap gap-2 mb-2">
+                {noteTags.map(tag => (
+                  <span key={tag} className="bg-bg-surface border border-border text-text-secondary text-[12px] px-2 py-1 rounded-full flex items-center gap-1">
+                    #{tag}
+                    <button onClick={() => setNoteTags(noteTags.filter(t => t !== tag))} className="hover:text-error">
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && tagInput.trim()) {
+                      e.preventDefault();
+                      if (!noteTags.includes(tagInput.trim())) {
+                        setNoteTags([...noteTags, tagInput.trim()]);
+                      }
+                      setTagInput('');
+                    }
+                  }}
+                  placeholder="Add tag..."
+                  className="flex-1 bg-bg-input border border-border rounded-lg px-3 py-2 text-[14px] text-text-primary focus:outline-none focus:border-text-primary"
+                />
+                <button 
+                  onClick={() => {
+                    if (tagInput.trim()) {
+                      if (!noteTags.includes(tagInput.trim())) {
+                        setNoteTags([...noteTags, tagInput.trim()]);
+                      }
+                      setTagInput('');
+                    }
+                  }}
+                  className="px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary hover:bg-bg-hover"
+                >
+                  <Plus size={18} />
+                </button>
+              </div>
             </div>
             
             <div className="flex gap-3">
@@ -1030,7 +1152,7 @@ export default function Bible() {
         </div>
       )}
 
-      <BottomNav />
+      {/* BottomNav removed as per user request to focus on reading */}
     </div>
   );
 }
