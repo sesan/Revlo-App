@@ -4,6 +4,7 @@ import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, Book
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
+import JournalSheet from '../components/JournalSheet';
 
 const BIBLE_BOOKS = [
   { name: 'Genesis', chapters: 50 }, { name: 'Exodus', chapters: 40 }, { name: 'Leviticus', chapters: 27 },
@@ -61,6 +62,7 @@ export default function Bible() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
+  const [showJournalSheet, setShowJournalSheet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [highlights, setHighlights] = useState<any[]>([]);
@@ -72,6 +74,7 @@ export default function Bible() {
   const [draggingPin, setDraggingPin] = useState<'start' | 'end' | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<{verseId: string, wordIndex: number} | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const touchStartPos = useRef<{x: number, y: number} | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -198,7 +201,10 @@ export default function Bible() {
   };
 
   const handlePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
-    const target = e.currentTarget as HTMLElement;
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    touchStartPos.current = { x: clientX, y: clientY };
+
     longPressTimer.current = setTimeout(() => {
       setIsSelecting(true);
       setSelectionStart({ verseId, wordIndex });
@@ -207,11 +213,16 @@ export default function Bible() {
       updatePopupPosition(newSelection);
       setShowColorPicker(false);
       if (navigator.vibrate) navigator.vibrate(50);
-    }, 300);
+    }, 200);
   };
 
   const handleVersePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string) => {
     if (!currentPassage) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
+    touchStartPos.current = { x: clientX, y: clientY };
+
     longPressTimer.current = setTimeout(() => {
       const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
       if (!verse) return;
@@ -228,7 +239,7 @@ export default function Bible() {
       updatePopupPosition(newSelection);
       setShowColorPicker(false);
       if (navigator.vibrate) navigator.vibrate(50);
-    }, 300);
+    }, 200);
   };
 
   const handleWordPointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
@@ -265,20 +276,37 @@ export default function Bible() {
   };
 
   const handlePointerMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isSelecting && !draggingPin) {
-      if (longPressTimer.current) clearTimeout(longPressTimer.current);
-      return;
-    }
-    
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
-    const element = document.elementFromPoint(clientX, clientY);
+    if (!isSelecting && !draggingPin) {
+      // Allow small movement during long press (10px threshold)
+      if (longPressTimer.current && touchStartPos.current) {
+        const dx = Math.abs(clientX - touchStartPos.current.x);
+        const dy = Math.abs(clientY - touchStartPos.current.y);
+        if (dx > 10 || dy > 10) {
+          clearTimeout(longPressTimer.current);
+          longPressTimer.current = null;
+        }
+      }
+      return;
+    }
+    
+    // Prevent scrolling while selecting
+    if (e.cancelable && (isSelecting || draggingPin)) {
+       e.preventDefault();
+    }
+
+    // On mobile, look up slightly above the finger so the user can see what they are selecting
+    const lookupY = isMobile ? clientY - 40 : clientY;
+    const element = document.elementFromPoint(clientX, lookupY);
+
     if (element && element.hasAttribute('data-verse-id')) {
       const verseId = element.getAttribute('data-verse-id')!;
       const wordIndex = parseInt(element.getAttribute('data-word-index')!, 10);
       
       if (draggingPin && selectionAnchor) {
+        // @ts-ignore
         const newSelection = getWordsInRange(selectionAnchor, { verseId, wordIndex });
         setSelectedWords(newSelection);
         updatePopupPosition(newSelection);
@@ -291,7 +319,11 @@ export default function Bible() {
   };
 
   const handlePointerUp = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    touchStartPos.current = null;
     setIsSelecting(false);
     setDraggingPin(null);
   };
@@ -559,6 +591,17 @@ export default function Bible() {
     if (!currentPassage) return;
     const nextChap = parseInt(currentPassage.chapter) + 1;
     navigate(`/bible/${currentPassage.book}/${nextChap}`);
+  };
+
+  const getSelectedVerses = () => {
+    if (!currentPassage || selectedWords.length === 0) return undefined;
+    
+    const uniqueVerseIds = Array.from(new Set(selectedWords.map(w => w.verseId)))
+      .sort((a: string, b: string) => parseInt(a) - parseInt(b));
+    
+    return uniqueVerseIds
+      .map(id => currentPassage.verses.find(v => v.verse.toString() === id))
+      .filter((v): v is Verse => v !== undefined);
   };
 
   const filteredBooks = BIBLE_BOOKS.filter(b => 
@@ -896,7 +939,7 @@ export default function Bible() {
               <button onClick={() => setShowNoteSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 <PenTool size={isMobile ? 18 : 14} /> Note
               </button>
-              <button onClick={() => navigate('/journal')} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
+              <button onClick={() => setShowJournalSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 <BookOpen size={isMobile ? 18 : 14} /> Journal
               </button>
               <button onClick={handleCopy} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
@@ -921,6 +964,16 @@ export default function Bible() {
             <span className="text-[14px] text-text-primary font-medium">Copied to clipboard</span>
           </div>
         </div>
+      )}
+
+      {/* Journal Sheet Modal */}
+      {currentPassage && (
+        <JournalSheet 
+          isOpen={showJournalSheet} 
+          onClose={() => setShowJournalSheet(false)} 
+          currentPassage={currentPassage}
+          selectedVerses={getSelectedVerses()}
+        />
       )}
 
       {/* Add Note Bottom Sheet */}
@@ -970,7 +1023,7 @@ export default function Bible() {
           >
             <Mic size={24} />
           </button>
-          <button onClick={() => navigate('/journal')} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
+          <button onClick={() => setShowJournalSheet(true)} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
             <PenTool size={24} />
           </button>
           <button onClick={() => navigate('/notes')} className="p-2 rounded-full text-text-primary hover:bg-bg-hover">
