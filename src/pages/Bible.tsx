@@ -299,7 +299,8 @@ export default function Bible() {
     }
 
     // On mobile, look up slightly above the finger so the user can see what they are selecting
-    const lookupY = isMobile ? clientY - 40 : clientY;
+    // Removed offset as per user request to start exactly where the finger is
+    const lookupY = clientY;
     const element = document.elementFromPoint(clientX, lookupY);
 
     if (element && element.hasAttribute('data-verse-id')) {
@@ -898,7 +899,7 @@ export default function Bible() {
             }
           >
             {showColorPicker ? (
-              <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh]' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto pb-safe`}>
+              <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh] overscroll-contain' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto pb-safe`}>
                 <div className={`flex justify-between items-center ${isMobile ? 'px-4 py-3' : 'px-3 py-2'} border-b border-border bg-bg-surface`}>
                   <span className={`${isMobile ? 'text-[12px]' : 'text-[11px]'} font-semibold text-text-secondary uppercase tracking-wider`}>Highlight Theme</span>
                   <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
