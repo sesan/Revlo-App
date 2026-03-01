@@ -75,6 +75,7 @@ export default function Bible() {
   const [selectionAnchor, setSelectionAnchor] = useState<{verseId: string, wordIndex: number} | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStartPos = useRef<{x: number, y: number} | null>(null);
+  const justFinishedSelection = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -318,7 +319,15 @@ export default function Bible() {
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e?: React.TouchEvent | React.MouseEvent) => {
+    if (isSelecting) {
+      if (e && e.cancelable && e.type === 'touchend') {
+        e.preventDefault();
+      }
+      justFinishedSelection.current = true;
+      setTimeout(() => { justFinishedSelection.current = false; }, 500);
+    }
+
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -670,6 +679,7 @@ export default function Bible() {
           const target = e.target as HTMLElement;
           // Clear selection if clicking outside a word and outside the popup menu
           if (!target.closest('[data-verse-id]') && !target.closest('.fixed')) {
+            if (justFinishedSelection.current) return;
             setSelectedWords([]);
           }
         }}
@@ -862,6 +872,7 @@ export default function Bible() {
             <div 
               className="fixed inset-0 bg-black/20 z-40 animate-in fade-in duration-200" 
               onClick={() => {
+                if (justFinishedSelection.current) return;
                 setShowColorPicker(false);
                 setSelectedWords([]);
               }} 
