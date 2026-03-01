@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
 import JournalSheet from '../components/JournalSheet';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 const BIBLE_BOOKS = [
   { name: 'Genesis', chapters: 50 }, { name: 'Exodus', chapters: 40 }, { name: 'Leviticus', chapters: 27 },
@@ -68,6 +69,9 @@ export default function Bible() {
   const [highlights, setHighlights] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showFloatingNav, setShowFloatingNav] = useState(true);
+  
+  // Lock body scroll when sheets are open on mobile
+  useLockBodyScroll(isMobile && (showColorPicker || showNoteSheet));
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{verseId: string, wordIndex: number} | null>(null);
@@ -899,7 +903,7 @@ export default function Bible() {
             }
           >
             {showColorPicker ? (
-              <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh] overscroll-contain' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto pb-safe`}>
+              <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh] overscroll-contain pb-[calc(env(safe-area-inset-bottom)+20px)]' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto`}>
                 <div className={`flex justify-between items-center ${isMobile ? 'px-4 py-3' : 'px-3 py-2'} border-b border-border bg-bg-surface`}>
                   <span className={`${isMobile ? 'text-[12px]' : 'text-[11px]'} font-semibold text-text-secondary uppercase tracking-wider`}>Highlight Theme</span>
                   <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
@@ -991,7 +995,7 @@ export default function Bible() {
       {/* Add Note Bottom Sheet */}
       {showNoteSheet && currentPassage && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-bg-elevated rounded-t-2xl sm:rounded-2xl border border-border p-5 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10">
+          <div className="w-full max-w-md bg-bg-elevated rounded-t-2xl sm:rounded-2xl border border-border p-5 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10 max-h-[80vh] overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+20px)]">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-[15px] font-bold tracking-tighter text-text-primary">
                 {currentPassage.book} {currentPassage.chapter}

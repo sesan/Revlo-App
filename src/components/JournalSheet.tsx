@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mic, X, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
 
@@ -24,6 +25,8 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
   const [isRecording, setIsRecording] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 
@@ -184,7 +187,7 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 overscroll-contain pb-[calc(env(safe-area-inset-bottom)+80px)]">
           {/* Verse Context Card */}
           <div className="bg-bg-surface border border-border rounded-xl p-4 mb-6 border-l-[3px] border-l-gold">
             <p className="text-[10px] uppercase tracking-[0.1em] text-gold mb-1 font-medium">
