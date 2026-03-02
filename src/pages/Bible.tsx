@@ -201,6 +201,7 @@ export default function Bible() {
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
+        tags: newHighlight.tags,
       },
       {
         user_id: newHighlight.user_id,
@@ -212,6 +213,7 @@ export default function Bible() {
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
+        tags: newHighlight.tags,
       },
       {
         user_id: newHighlight.user_id,
@@ -221,6 +223,7 @@ export default function Bible() {
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
+        tags: newHighlight.tags,
       },
     ];
 
@@ -563,7 +566,8 @@ export default function Bible() {
           show_in_all_translations: false,
           word_start: minFlat,
           word_end: maxFlat,
-          color: color
+          color: color,
+          tags: [color] // Auto-tag with color name
         };
 
         const data = await insertHighlightWithFallback(newHighlight);

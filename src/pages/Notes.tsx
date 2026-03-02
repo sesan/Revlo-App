@@ -72,7 +72,8 @@ export default function Notes() {
           verse,
           word_start,
           word_end,
-          translation
+          translation,
+          tags
         `)
         .eq('user_id', user?.id)
         .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
@@ -86,7 +87,7 @@ export default function Notes() {
         content: `Highlighted text (${h.color})`,
         type: 'highlight',
         color: h.color,
-        tags: [],
+        tags: h.tags || [h.color], // Use existing tags or default to color name
         created_at: h.created_at,
         book: h.book,
         chapter: h.chapter,
@@ -101,10 +102,13 @@ export default function Notes() {
 
       setNotes(allItems);
 
-      // Extract unique tags from notes only
+      // Extract unique tags from both notes and highlights
       const tags = new Set<string>();
       notesData?.forEach((note: any) => {
         note.tags?.forEach((tag: string) => tags.add(tag));
+      });
+      highlightsData?.forEach((highlight: any) => {
+        highlight.tags?.forEach((tag: string) => tags.add(tag));
       });
       setAllTags(Array.from(tags).sort());
 
@@ -149,29 +153,31 @@ export default function Notes() {
     setFilteredNotes(result);
   };
 
-  const handleAddTag = async (noteId: string, currentTags: string[]) => {
+  const handleAddTag = async (itemId: string, currentTags: string[], type: string) => {
     const tag = window.prompt('Enter a tag:');
     if (!tag || !tag.trim()) return;
-    
+
     const newTag = tag.trim();
     if (currentTags?.includes(newTag)) return;
-    
+
     const updatedTags = [...(currentTags || []), newTag];
-    
+
     try {
+      // Update in the appropriate table based on type
+      const table = type === 'highlight' ? 'highlights' : 'notes';
       const { error } = await supabase
-        .from('notes')
+        .from(table)
         .update({ tags: updatedTags })
-        .eq('id', noteId);
-        
+        .eq('id', itemId);
+
       if (error) throw error;
-      
+
       // Update local state
-      const updatedNotes = notes.map(n => 
-        n.id === noteId ? { ...n, tags: updatedTags } : n
+      const updatedNotes = notes.map(n =>
+        n.id === itemId ? { ...n, tags: updatedTags } : n
       );
       setNotes(updatedNotes);
-      
+
       // Update allTags if new tag
       if (!allTags.includes(newTag)) {
         setAllTags([...allTags, newTag].sort());
@@ -336,17 +342,15 @@ export default function Notes() {
                           #{tag}
                         </span>
                       ))}
-                      {note.type !== 'highlight' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddTag(note.id, note.tags);
-                          }}
-                          className="bg-bg-elevated border border-border text-text-muted hover:text-gold text-[11px] px-2 py-0.5 rounded-full flex items-center"
-                        >
-                          <Plus size={12} />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddTag(note.id, note.tags, note.type);
+                        }}
+                        className="bg-bg-elevated border border-border text-text-muted hover:text-gold text-[11px] px-2 py-0.5 rounded-full flex items-center"
+                      >
+                        <Plus size={12} />
+                      </button>
                     </div>
                     
                     <div className="flex items-center gap-3">
