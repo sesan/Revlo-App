@@ -172,8 +172,8 @@ export default function Bible() {
         .from('passages')
         .select('id')
         .eq('book', bookName)
-        .eq('chapter', Number(chapterNo))
-        .eq('verse', Number(verseNo))
+        .eq('chapter', parseInt(chapterNo))
+        .eq('verse', parseInt(verseNo))
         .maybeSingle();
 
       if (error) return null;
@@ -189,16 +189,9 @@ export default function Bible() {
       {
         user_id: newHighlight.user_id,
         passage_id: newHighlight.passage_id,
-        word_start: newHighlight.word_start,
-        word_end: newHighlight.word_end,
-        color: newHighlight.color,
-      },
-      {
-        user_id: newHighlight.user_id,
-        passage_id: newHighlight.passage_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
-        verse: Number(newHighlight.verse),
+        verse: String(newHighlight.verse),
         translation: newHighlight.translation,
         show_in_all_translations: newHighlight.show_in_all_translations,
         word_start: newHighlight.word_start,
@@ -209,7 +202,7 @@ export default function Bible() {
         user_id: newHighlight.user_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
-        verse: Number(newHighlight.verse),
+        verse: String(newHighlight.verse),
         translation: newHighlight.translation,
         show_in_all_translations: newHighlight.show_in_all_translations,
         word_start: newHighlight.word_start,
@@ -220,13 +213,7 @@ export default function Bible() {
         user_id: newHighlight.user_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
-        verse: Number(newHighlight.verse),
-        word_start: newHighlight.word_start,
-        word_end: newHighlight.word_end,
-        color: newHighlight.color,
-      },
-      {
-        user_id: newHighlight.user_id,
+        translation: newHighlight.translation,
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
@@ -583,8 +570,11 @@ export default function Bible() {
           setHighlights(prev => [...prev, { ...newHighlight, id: crypto.randomUUID() }]);
         }
       }
-      
+
       setSelectedWords([]);
+
+      // Refresh highlights from database to ensure they display correctly
+      await fetchUserData();
     } catch (err) {
       console.error('Error saving highlight:', err);
       const message = err instanceof Error ? err.message : 'Unknown database error';

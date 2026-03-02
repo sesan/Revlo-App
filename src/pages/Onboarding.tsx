@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { generatePersonalizedPlan } from '../lib/gemini';
 
 const PURPOSE_OPTIONS = [
   "I'm exploring who Jesus is",
@@ -54,6 +55,7 @@ export default function Onboarding() {
   const [experience, setExperience] = useState('');
   const [interests, setInterests] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
 
@@ -84,11 +86,15 @@ export default function Onboarding() {
   const handleSubmit = async () => {
     if (!user || submitting) return;
     setSubmitting(true);
+    setLoading(true);
 
     try {
-      const firstInterest = INTEREST_OPTIONS.find((o) => o.label === interests[0]);
-      const planName = firstInterest?.plan || "The Story of Jesus";
-      const topic = firstInterest?.topic || "Who is Jesus?";
+      const result = await generatePersonalizedPlan({
+        name: name.trim(),
+        purpose,
+        experience,
+        interests,
+      });
 
       await supabase
         .from('profiles')
@@ -99,22 +105,48 @@ export default function Onboarding() {
           interests,
           onboarding_answers: [purpose, experience, interests],
           onboarding_complete: true,
-          current_plan: planName,
+          current_plan: result.planName,
           current_day: 1,
         })
         .eq('id', user.id);
 
       await refreshProfile();
-      navigate('/onboarding/result', { state: { topic } });
+      navigate('/onboarding/result', { state: { plan: result } });
     } catch (error) {
       console.error('Error saving onboarding data', error);
     } finally {
       setSubmitting(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col max-w-md mx-auto w-full">
+      {/* Loading overlay */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            key="loading-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.15, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+              className="w-20 h-20 rounded-full bg-bg-surface border border-border mb-8 flex items-center justify-center"
+            >
+              <BookOpen size={32} className="text-text-primary" />
+            </motion.div>
+            <p className="text-[17px] text-text-secondary font-medium">
+              Creating your personalised plan...
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header — steps 1+ only */}
       {currentStep > 0 && (
         <div className="px-6 pt-6 pb-2">

@@ -46,27 +46,17 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
     setSaving(true);
 
     try {
-      const entryData = {
-        user_id: user.id,
-        passage_id: currentPassage.id,
-        framework: framework === 'Free Write' ? 'free' : framework,
-        translation: translation,
-        field_1: fields.f1,
-        field_2: fields.f2,
-        field_3: fields.f3,
-        field_4: fields.f4,
-        verse: contextVerses[0].verse
-      };
+      // Save journal entry as a note (journal_entries table doesn't exist yet)
+      const journalContent = `
+${framework === 'HEAR' ? 'Highlight' : framework === 'SOAP' ? 'Scripture' : 'Reflection'}: ${fields.f1}
 
-      // Save journal entry
-      const { error: journalError } = await supabase
-        .from('journal_entries')
-        .insert([entryData]);
+${framework === 'HEAR' ? 'Explain' : framework === 'SOAP' ? 'Observation' : 'Thoughts'}: ${fields.f2}
 
-      if (journalError) throw journalError;
+${framework === 'HEAR' ? 'Apply' : framework === 'SOAP' ? 'Application' : 'Action'}: ${fields.f3}
 
-      // Save summary note
-      const summaryContent = framework === 'Free Write' ? fields.f1 : fields.f1;
+${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}: ${fields.f4}
+      `.trim();
+
       const { error: noteError } = await supabase
         .from('notes')
         .insert([{
@@ -74,10 +64,10 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
           passage_id: currentPassage.id,
           translation: translation,
           show_in_all_translations: false,
-          content: summaryContent.substring(0, 100) + (summaryContent.length > 100 ? '...' : ''),
+          content: journalContent,
           type: 'journal',
           framework: framework === 'Free Write' ? 'free' : framework,
-          verse: contextVerses[0].verse
+          verse: contextVerses[0].verse.toString()
         }]);
 
       if (noteError) throw noteError;

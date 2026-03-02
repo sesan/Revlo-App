@@ -39,9 +39,13 @@ src/
 ├── hooks/
 │   └── useLockBodyScroll.ts # Prevent scroll on mobile modals
 ├── lib/
-│   ├── AuthContext.tsx      # Authentication state management
-│   ├── supabase.ts          # Supabase client configuration
-│   └── data.ts              # Data utilities
+│   ├── AuthContext.tsx          # Authentication state management
+│   ├── TranslationContext.tsx   # Translation state management
+│   ├── ThemeContext.tsx         # Font style (serif/sans) management
+│   ├── translations.ts          # Translation definitions & metadata
+│   ├── bibleApi.ts              # Bible API abstraction layer
+│   ├── supabase.ts              # Supabase client configuration
+│   └── data.ts                  # Data utilities
 └── pages/
     ├── Login.tsx            # Login screen
     ├── Signup.tsx           # Registration screen
@@ -78,10 +82,19 @@ src/
 ### 4. **Bible Reading** (`Bible.tsx`)
 - Full Bible navigation (66 books)
 - Chapter-by-chapter reading
+- **Multiple Bible Translations**:
+  - WEB (World English Bible) - Modern English
+  - KJV (King James Version) - Traditional English
+  - YLT (Young's Literal Translation) - Word-for-word literal
+  - Almeida (Portuguese) - João Ferreira de Almeida
+  - Translation selector in header
+  - Preference saved to localStorage and Supabase
+  - Translation-specific highlights and notes
 - **Text highlighting** with multiple colors:
   - Yellow, Blue, Green, Pink, Red
   - Mobile-optimized text selection with long-press
   - Persistent highlights saved to database
+  - Translation-aware (highlights tied to specific translations)
 - **Note-taking** on verses
 - **Voice notes** (microphone integration)
 - **Journaling frameworks**:
@@ -115,6 +128,7 @@ src/
    - Links to Supabase auth.users
    - Onboarding completion status
    - Current reading plan and day tracking
+   - `preferred_translation` - User's default Bible translation
 
 2. **`passages`** - Bible text storage
    - Book, chapter, verse structure
@@ -126,23 +140,84 @@ src/
    - Word range (start/end indices)
    - Color coding
    - User-specific
+   - `translation` - Bible translation code (web, kjv, ylt, almeida)
+   - `show_in_all_translations` - Boolean flag for cross-translation display
+   - `book`, `chapter`, `verse` - Passage reference fields
 
 4. **`notes`** - General notes
    - Multiple types (note, highlight, journal, voice, bookmark)
    - Framework support (HEAR, SOAP, free)
    - Tags array
    - Linked to passages
+   - `translation` - Bible translation code
+   - `show_in_all_translations` - Boolean flag for cross-translation display
 
-5. **`journal_entries`** - Structured journal entries
-   - Framework type
-   - Four customizable fields
-   - Linked to passages
+5. **`journal_entries`** - Currently stored as notes with type='journal'
+   - Journal entries are saved to the `notes` table
+   - Contains formatted content from journaling frameworks
 
 ### Security:
 - **Row Level Security (RLS)** enabled on all tables
 - Users can only access their own data
 - Passages are publicly readable
 - Policies enforce user_id matching
+
+### Database Migrations:
+**Translation Support Migration** - Required for Bible translations feature:
+```sql
+-- Add translation columns
+ALTER TABLE highlights
+ADD COLUMN IF NOT EXISTS translation TEXT DEFAULT 'web',
+ADD COLUMN IF NOT EXISTS show_in_all_translations BOOLEAN DEFAULT false;
+
+ALTER TABLE notes
+ADD COLUMN IF NOT EXISTS translation TEXT DEFAULT 'web',
+ADD COLUMN IF NOT EXISTS show_in_all_translations BOOLEAN DEFAULT false;
+
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS preferred_translation TEXT DEFAULT 'web';
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_highlights_translation
+ON highlights(user_id, book, chapter, translation);
+
+CREATE INDEX IF NOT EXISTS idx_notes_translation
+ON notes(user_id, passage_id, translation);
+
+-- Backfill existing data
+UPDATE highlights SET translation = 'web' WHERE translation IS NULL;
+UPDATE notes SET translation = 'web' WHERE translation IS NULL;
+UPDATE profiles SET preferred_translation = 'web' WHERE preferred_translation IS NULL;
+```
+
+---
+
+## **Translation System**
+
+### Architecture:
+- **`src/lib/translations.ts`** - Translation definitions and metadata
+- **`src/lib/bibleApi.ts`** - API abstraction layer for fetching Bible passages
+- **`src/lib/TranslationContext.tsx`** - Global state management with localStorage + Supabase sync
+
+### Supported Translations:
+Currently uses **bible-api.com** for all translations (free, no API key required):
+- **WEB** (World English Bible) - Modern English, Public Domain
+- **KJV** (King James Version) - Traditional English, Public Domain
+- **YLT** (Young's Literal Translation) - Literal word-for-word, Public Domain
+- **Almeida** - Portuguese Bible, Public Domain
+
+### Future Expansion:
+To add copyrighted translations (NIV, ESV, NASB), you'll need:
+1. Register for API keys from services like **API.Bible** or **ESV API**
+2. Add authentication headers to API requests
+3. Update `bibleApi.ts` to route translations to appropriate API sources
+4. Handle licensing requirements and copyright notices
+
+### Translation Filtering:
+- Highlights and notes are **translation-specific** by default
+- `show_in_all_translations` flag allows content to appear across all translations
+- User's preferred translation is saved in `profiles.preferred_translation`
+- localStorage caches the translation choice for instant loading
 
 ---
 
@@ -193,6 +268,12 @@ src/
 - **Body scroll locking**: Prevents background scroll when modals open on mobile
 - **Toast notifications**: Temporary feedback for user actions
 - **Real-time updates**: Supabase subscriptions for auth state changes
+- **Translation system**:
+  - Context-based state management with localStorage persistence
+  - Automatic Supabase sync for authenticated users
+  - Translation-specific content filtering (highlights/notes)
+  - API abstraction layer supporting multiple Bible API sources
+  - Fallback payload system for flexible database insertion
 
 ---
 
@@ -215,6 +296,23 @@ npm run preview         # Preview production build
 npm run lint            # Type check with TypeScript
 npm run clean           # Remove dist folder
 ```
+
+## **Database Setup**
+
+### Initial Setup:
+1. Create a new project in Supabase
+2. Run the schema from `supabase.sql` in the SQL Editor
+3. Run the translation migration from `migration-final.sql`
+4. Set up environment variables in `.env`:
+   ```
+   VITE_SUPABASE_URL=your_project_url
+   VITE_SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+### Migration Files:
+- **`supabase.sql`** - Base schema with all tables and RLS policies
+- **`migration-final.sql`** - Translation support (adds translation columns)
+- **`migration.sql`** - Alternative migration (includes journal_entries table)
 
 ---
 

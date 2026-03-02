@@ -3,61 +3,93 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+import type { PersonalizedPlan } from '../lib/gemini';
 
 const stagger = (i: number) => ({ delay: 0.1 + i * 0.12 });
+
+function parsePassageRoute(passage: string): string {
+  // Handle multi-word books like "1 Corinthians 13" or "Song of Solomon 1:1-5"
+  // Strategy: last token is "chapter" or "chapter:verses", everything before is the book
+  const parts = passage.trim().split(' ');
+  if (parts.length < 2) return '/bible/John/1';
+
+  const last = parts[parts.length - 1];
+  const book = parts.slice(0, -1).join(' ');
+  const chapter = last.split(':')[0];
+
+  return `/bible/${encodeURIComponent(book)}/${chapter}`;
+}
 
 export default function OnboardingResult() {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [plan, setPlan] = useState({ name: '', description: '', day1: '' });
+  const [plan, setPlan] = useState({ name: '', description: '', day1: '', welcomeMessage: '' });
 
   useEffect(() => {
+    // Check for AI-generated plan first
+    const aiPlan = location.state?.plan as PersonalizedPlan | undefined;
+
+    if (aiPlan?.planName) {
+      setPlan({
+        name: aiPlan.planName,
+        description: aiPlan.planDescription,
+        day1: aiPlan.day1Passage,
+        welcomeMessage: aiPlan.welcomeMessage,
+      });
+      return;
+    }
+
+    // Fallback: existing topic-based hardcoded logic
     const topic = location.state?.topic || "Who is Jesus?";
 
     if (topic === "How do I pray?") {
       setPlan({
         name: "Learning to Talk to God",
         description: "7 days of scripture and reflection to build a real prayer life.",
-        day1: "Matthew 6:5-15"
+        day1: "Matthew 6:5-15",
+        welcomeMessage: '',
       });
     } else if (topic === "Finding peace and comfort") {
       setPlan({
         name: "Held by Peace",
         description: "7 passages for when life feels overwhelming. You are not alone.",
-        day1: "Psalm 23"
+        day1: "Psalm 23",
+        welcomeMessage: '',
       });
     } else if (topic === "Understanding God's purpose for my life") {
       setPlan({
         name: "Made with Purpose",
         description: "Explore who God says you are and why you are here.",
-        day1: "Jeremiah 29:11-14"
+        day1: "Jeremiah 29:11-14",
+        welcomeMessage: '',
       });
     } else if (topic === "Love, relationships, and family") {
       setPlan({
         name: "Love as Scripture Defines It",
         description: "7 days exploring what the Bible says about love, commitment, and family.",
-        day1: "1 Corinthians 13"
+        day1: "1 Corinthians 13",
+        welcomeMessage: '',
       });
     } else if (topic === "Overcoming fear and anxiety") {
       setPlan({
         name: "Fear Not",
         description: "7 powerful scriptures for anxiety, fear, and uncertainty.",
-        day1: "Isaiah 41:10"
+        day1: "Isaiah 41:10",
+        welcomeMessage: '',
       });
     } else {
       setPlan({
         name: "The Story of Jesus",
         description: "A 7-day journey through the life, words, and resurrection of Jesus Christ.",
-        day1: "John 1:1-18"
+        day1: "John 1:1-18",
+        welcomeMessage: '',
       });
     }
   }, [location.state]);
 
   const handleStartReading = () => {
-    // Navigate to Bible reader with the specific passage
-    const [book, chapter] = plan.day1.split(' ');
-    navigate(`/bible/${book}/${chapter.split(':')[0]}`);
+    navigate(parsePassageRoute(plan.day1));
   };
 
   return (
@@ -77,7 +109,7 @@ export default function OnboardingResult() {
         transition={{ duration: 0.3, ease: 'easeOut', ...stagger(1) }}
         className="text-[32px] font-bold tracking-tighter text-text-primary mb-2"
       >
-        Your plan is ready.
+        {plan.welcomeMessage || 'Your plan is ready.'}
       </motion.h1>
 
       <motion.h2
