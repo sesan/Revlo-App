@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Mic, X, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomSheet from './BottomSheet';
+import { useSpeechToText } from '../hooks/useSpeechToText';
+import { applyTranscriptToJournalFields, appendTranscriptToField } from '../lib/journalVoice';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { transcribeJournalAudioWithGemini } from '../lib/gemini';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
+type RecordingTarget = 'all' | 'f1' | 'f2' | 'f3' | 'f4';
 
 interface JournalSheetProps {
   isOpen: boolean;
@@ -23,9 +28,64 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
   const { user } = useAuth();
   const [framework, setFramework] = useState<Framework>('HEAR');
   const [fields, setFields] = useState({ f1: '', f2: '', f3: '', f4: '' });
-  const [isRecording, setIsRecording] = useState<string | null>(null);
+  const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [showVoiceToast, setShowVoiceToast] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isVoiceStarting, setIsVoiceStarting] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isVoiceLocked, setIsVoiceLocked] = useState(false);
+  const [voiceProcessError, setVoiceProcessError] = useState<string | null>(null);
+  const activeVoiceSessionRef = useRef(0);
+  const holdTimerRef = useRef<number | null>(null);
+  const holdStartedRef = useRef(false);
+  const pendingReleaseProcessRef = useRef(false);
+  const suppressNextClickRef = useRef(false);
+  const { isListening, isSupported: isSpeechSupported, error: speechError, clearError: clearSpeechError, startListening, stopListening } = useSpeechToText();
+  const { isRecording: isAudioRecording, isSupported: isAudioRecordingSupported, error: audioError, clearError: clearAudioError, startRecording, stopRecording } = useAudioRecorder();
+  const hasGeminiApi = Boolean(import.meta.env.VITE_GEMINI_API_KEY);
+  const canUseGeminiVoice = hasGeminiApi && isAudioRecordingSupported;
+  const isVoiceSupported = canUseGeminiVoice || isSpeechSupported;
+  const isVoiceActive = isVoiceStarting || isListening || isAudioRecording || isTranscribing;
+  const voiceError = voiceProcessError || audioError || speechError;
+
+  useEffect(() => {
+    if (!isListening && !isAudioRecording && !isTranscribing && !isVoiceStarting) {
+      setRecordingTarget(null);
+      setIsVoiceLocked(false);
+    }
+  }, [isAudioRecording, isListening, isTranscribing, isVoiceStarting]);
+
+  useEffect(() => {
+    if (isListening || isAudioRecording) {
+      activeVoiceSessionRef.current += 1;
+      if (isListening) stopListening({ process: false });
+      if (isAudioRecording) stopRecording({ process: false });
+      setRecordingTarget(null);
+      setIsVoiceStarting(false);
+      setIsVoiceLocked(false);
+    }
+  }, [framework, isAudioRecording, isListening, stopListening, stopRecording]);
+
+  useEffect(() => {
+    if (!isOpen && (isListening || isAudioRecording)) {
+      activeVoiceSessionRef.current += 1;
+      if (isListening) stopListening({ process: false });
+      if (isAudioRecording) stopRecording({ process: false });
+      setRecordingTarget(null);
+      setIsVoiceStarting(false);
+      setIsVoiceLocked(false);
+    }
+  }, [isAudioRecording, isListening, isOpen, stopListening, stopRecording]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current !== null) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -82,15 +142,207 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
     }
   };
 
-  const toggleRecording = (field: string) => {
-    if (isRecording === field) {
-      setIsRecording(null);
-      setFields(prev => ({
+  const showVoiceSuccessToast = () => {
+    setShowVoiceToast(true);
+    setTimeout(() => setShowVoiceToast(false), 1600);
+  };
+
+  const applyTranscriptForTarget = (target: RecordingTarget, transcript: string) => {
+    setFields((prev) => {
+      if (target === 'all') {
+        return applyTranscriptToJournalFields(framework, transcript, prev);
+      }
+
+      return {
         ...prev,
-        [field]: prev[field as keyof typeof prev] + " [Transcribed text from voice]"
-      }));
-    } else {
-      setIsRecording(field);
+        [target]: appendTranscriptToField(prev[target], transcript)
+      };
+    });
+    showVoiceSuccessToast();
+  };
+
+  const applyGeminiResultForTarget = (
+    target: RecordingTarget,
+    result: { transcript: string; fields: { f1: string; f2: string; f3: string; f4: string } }
+  ) => {
+    setFields((prev) => {
+      if (target !== 'all') {
+        return {
+          ...prev,
+          [target]: appendTranscriptToField(prev[target], result.transcript)
+        };
+      }
+
+      return {
+        f1: appendTranscriptToField(prev.f1, result.fields.f1),
+        f2: appendTranscriptToField(prev.f2, result.fields.f2),
+        f3: appendTranscriptToField(prev.f3, result.fields.f3),
+        f4: appendTranscriptToField(prev.f4, result.fields.f4)
+      };
+    });
+
+    setVoiceProcessError(null);
+    showVoiceSuccessToast();
+  };
+
+  const HOLD_START_DELAY_MS = 220;
+
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const stopRecordingSession = (process: boolean) => {
+    activeVoiceSessionRef.current += 1;
+    pendingReleaseProcessRef.current = false;
+
+    if (isListening) {
+      stopListening({ process });
+    }
+    if (isAudioRecording) {
+      stopRecording({ process });
+    }
+
+    setIsVoiceStarting(false);
+
+    if (!process) {
+      setRecordingTarget(null);
+      setIsVoiceLocked(false);
+      setIsTranscribing(false);
+      setVoiceProcessError(null);
+    }
+  };
+
+  const startRecordingForTarget = async (target: RecordingTarget, lockOnStart: boolean) => {
+    if (!isVoiceSupported) {
+      alert('Voice transcription is not supported on this browser. Try Chrome or Safari on a newer device.');
+      return;
+    }
+
+    if (isListening || isAudioRecording) {
+      stopRecordingSession(false);
+    }
+
+    clearSpeechError();
+    clearAudioError();
+    setVoiceProcessError(null);
+    pendingReleaseProcessRef.current = false;
+    setRecordingTarget(target);
+    setIsVoiceLocked(lockOnStart);
+    setIsVoiceStarting(true);
+
+    if (canUseGeminiVoice) {
+      const sessionId = activeVoiceSessionRef.current + 1;
+      activeVoiceSessionRef.current = sessionId;
+
+      const started = await startRecording({
+        onComplete: async (audioBlob) => {
+          if (sessionId !== activeVoiceSessionRef.current) return;
+
+          setIsTranscribing(true);
+
+          try {
+            const geminiResult = await transcribeJournalAudioWithGemini(audioBlob, framework);
+            if (sessionId !== activeVoiceSessionRef.current) return;
+            applyGeminiResultForTarget(target, geminiResult);
+          } catch (err) {
+            console.error('Voice transcription failed:', err);
+            setVoiceProcessError('Could not process this recording. Please try again.');
+          } finally {
+            if (sessionId === activeVoiceSessionRef.current) {
+              setIsTranscribing(false);
+            }
+          }
+        }
+      });
+
+      if (!started) {
+        if (isSpeechSupported) {
+          const speechStarted = startListening({
+            onFinalTranscript: (transcript) => {
+              applyTranscriptForTarget(target, transcript);
+            }
+          });
+          if (!speechStarted) {
+            setRecordingTarget(null);
+          }
+        } else {
+          setRecordingTarget(null);
+        }
+      }
+      setIsVoiceStarting(false);
+      if (!lockOnStart && pendingReleaseProcessRef.current) {
+        pendingReleaseProcessRef.current = false;
+        stopRecordingSession(true);
+      }
+      return;
+    }
+
+    const started = startListening({
+      onFinalTranscript: (transcript) => {
+        applyTranscriptForTarget(target, transcript);
+      }
+    });
+
+    if (!started) {
+      setRecordingTarget(null);
+    }
+    setIsVoiceStarting(false);
+    if (!lockOnStart && pendingReleaseProcessRef.current) {
+      pendingReleaseProcessRef.current = false;
+      stopRecordingSession(true);
+    }
+  };
+
+  const handleMicTap = async (target: RecordingTarget) => {
+    if (suppressNextClickRef.current) return;
+    pendingReleaseProcessRef.current = false;
+
+    if (recordingTarget === target && (isListening || isAudioRecording)) {
+      if (isVoiceLocked) {
+        stopRecordingSession(true);
+      } else {
+        setIsVoiceLocked(true);
+      }
+      return;
+    }
+
+    await startRecordingForTarget(target, true);
+  };
+
+  const handleMicPointerDown = (target: RecordingTarget, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isVoiceSupported || isVoiceActive) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    holdStartedRef.current = false;
+    clearHoldTimer();
+
+    holdTimerRef.current = window.setTimeout(() => {
+      holdStartedRef.current = true;
+      startRecordingForTarget(target, false);
+    }, HOLD_START_DELAY_MS);
+  };
+
+  const handleMicPointerUp = (target: RecordingTarget) => {
+    clearHoldTimer();
+
+    if (!holdStartedRef.current) return;
+
+    holdStartedRef.current = false;
+    suppressNextClickRef.current = true;
+    window.setTimeout(() => {
+      suppressNextClickRef.current = false;
+    }, 260);
+
+    if (recordingTarget === target && !isVoiceLocked) {
+      if (isListening || isAudioRecording) {
+        stopRecordingSession(true);
+      } else {
+        pendingReleaseProcessRef.current = true;
+      }
     }
   };
 
@@ -109,7 +361,7 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
       );
     }
 
-    const labels = framework === 'HEAR' ? [
+    const labels: Array<{ id: 'f1' | 'f2' | 'f3' | 'f4'; letter: string; prompt: string }> = framework === 'HEAR' ? [
       { id: 'f1', letter: 'H', prompt: 'What word or phrase stands out to you?' },
       { id: 'f2', letter: 'E', prompt: 'What does this passage mean in context?' },
       { id: 'f3', letter: 'A', prompt: 'How does this apply to your life right now?' },
@@ -133,13 +385,18 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
                 <p className="text-[13px] text-text-secondary">{section.prompt}</p>
               </div>
               <button
-                onClick={() => toggleRecording(section.id)}
+                onClick={() => handleMicTap(section.id)}
+                onPointerDown={(event) => handleMicPointerDown(section.id, event)}
+                onPointerUp={() => handleMicPointerUp(section.id)}
+                onPointerCancel={() => handleMicPointerUp(section.id)}
                 className={`p-2 rounded-full transition-colors ${
-                  isRecording === section.id
+                  recordingTarget === section.id && isVoiceActive
                     ? 'text-error bg-error/10 animate-pulse'
                     : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
                 }`}
-                aria-label={`Record voice for ${section.letter}`}
+                aria-label={recordingTarget === section.id && isVoiceActive ? `Stop recording for ${section.letter}` : `Record voice for ${section.letter}`}
+                aria-pressed={recordingTarget === section.id && isVoiceActive}
+                disabled={!isVoiceSupported}
               >
                 <Mic size={20} />
               </button>
@@ -206,6 +463,92 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
           ))}
         </div>
 
+        <div className="mb-2 flex justify-end">
+          <button
+            onClick={() => handleMicTap('all')}
+            onPointerDown={(event) => handleMicPointerDown('all', event)}
+            onPointerUp={() => handleMicPointerUp('all')}
+            onPointerCancel={() => handleMicPointerUp('all')}
+            className={`px-3 py-2 rounded-full text-[12px] font-medium border transition-colors flex items-center gap-2 ${
+              recordingTarget === 'all' && isVoiceActive
+                ? 'text-error bg-error/10 border-error'
+                : 'text-gold border-gold-border hover:bg-gold/10'
+            }`}
+            aria-label={recordingTarget === 'all' && isVoiceActive ? 'Stop recording full journal entry' : 'Record full journal entry with voice'}
+            aria-pressed={recordingTarget === 'all' && isVoiceActive}
+            disabled={!isVoiceSupported}
+          >
+            <Mic size={14} />
+            {recordingTarget === 'all' && isVoiceStarting
+              ? 'Starting...'
+              : recordingTarget === 'all' && isTranscribing
+                ? 'Processing voice...'
+                : recordingTarget === 'all' && (isListening || isAudioRecording)
+                  ? 'Stop full entry recording'
+                  : 'Record full entry'}
+          </button>
+        </div>
+
+        {!isVoiceActive && (
+          <p className="text-[12px] text-text-secondary mb-2">
+            Tip: hold to talk and release to process, or tap once to lock and then use Stop or Send.
+          </p>
+        )}
+
+        {isVoiceStarting && (
+          <p role="status" aria-live="polite" className="text-[12px] text-text-secondary mb-2">
+            Starting microphone...
+          </p>
+        )}
+        {(isListening || isAudioRecording) && (
+          <p role="status" aria-live="polite" className="text-[12px] text-text-secondary mb-2">
+            {isVoiceLocked
+              ? 'Recording is locked. Tap Stop to discard or Send to process.'
+              : 'Listening... hold to talk and release to process, or tap Lock for hands-free recording.'}
+          </p>
+        )}
+        {(isListening || isAudioRecording) && (
+          <div className="mb-2 flex items-center gap-2">
+            {!isVoiceLocked && (
+              <button
+                onClick={() => setIsVoiceLocked(true)}
+                className="px-3 py-1.5 text-[12px] rounded-full border border-border text-text-primary bg-bg-elevated hover:bg-bg-hover transition-colors"
+              >
+                Lock
+              </button>
+            )}
+            {isVoiceLocked && (
+              <>
+                <button
+                  onClick={() => stopRecordingSession(false)}
+                  className="px-3 py-1.5 text-[12px] rounded-full border border-border text-text-primary bg-bg-elevated hover:bg-bg-hover transition-colors"
+                >
+                  Stop
+                </button>
+                <button
+                  onClick={() => stopRecordingSession(true)}
+                  className="px-3 py-1.5 text-[12px] rounded-full border border-gold text-text-inverse bg-gold hover:bg-gold-hover transition-colors"
+                >
+                  Send
+                </button>
+              </>
+            )}
+          </div>
+        )}
+        {isTranscribing && (
+          <p role="status" aria-live="polite" className="text-[12px] text-text-secondary mb-2">
+            Processing your voice and filling your journal fields...
+          </p>
+        )}
+        {voiceError && (
+          <p role="alert" className="text-[12px] text-error mb-2">{voiceError}</p>
+        )}
+        {!isVoiceSupported && (
+          <p className="text-[12px] text-text-secondary mb-2">
+            Voice transcription is unavailable in this browser.
+          </p>
+        )}
+
         {/* Dynamic Sections */}
         {renderSections()}
       </div>
@@ -216,6 +559,14 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
           <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-gold" />
             <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>
+          </div>
+        </div>
+      )}
+
+      {showVoiceToast && (
+        <div role="status" aria-live="polite" className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-bg-elevated border border-border rounded-full px-4 py-2.5 shadow-lg">
+            <span className="text-[13px] text-text-primary font-medium">Voice transcription added to journal.</span>
           </div>
         </div>
       )}

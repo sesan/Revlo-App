@@ -26,6 +26,10 @@ interface StartListeningOptions {
   onFinalTranscript: (transcript: string) => void;
 }
 
+interface StopListeningOptions {
+  process?: boolean;
+}
+
 function getRecognitionCtor(): RecognitionCtor | null {
   if (typeof window === 'undefined') return null;
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null;
@@ -51,6 +55,7 @@ export function useSpeechToText() {
   const recognitionRef = useRef<RecognitionLike | null>(null);
   const finalTranscriptRef = useRef('');
   const onFinalTranscriptRef = useRef<((transcript: string) => void) | null>(null);
+  const shouldProcessRef = useRef(true);
 
   const [isListening, setIsListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +65,8 @@ export function useSpeechToText() {
     setIsSupported(!!getRecognitionCtor());
   }, []);
 
-  const stopListening = useCallback(() => {
+  const stopListening = useCallback((options?: StopListeningOptions) => {
+    shouldProcessRef.current = options?.process ?? true;
     recognitionRef.current?.stop();
   }, []);
 
@@ -74,6 +80,7 @@ export function useSpeechToText() {
     }
 
     try {
+      shouldProcessRef.current = false;
       recognitionRef.current?.stop();
 
       const recognition = new RecognitionCtor();
@@ -84,6 +91,7 @@ export function useSpeechToText() {
 
       finalTranscriptRef.current = '';
       onFinalTranscriptRef.current = options.onFinalTranscript;
+      shouldProcessRef.current = true;
       setError(null);
 
       recognition.onresult = (event: any) => {
@@ -105,8 +113,10 @@ export function useSpeechToText() {
 
       recognition.onend = () => {
         setIsListening(false);
+        const shouldProcess = shouldProcessRef.current;
+        shouldProcessRef.current = true;
         const transcript = finalTranscriptRef.current.trim();
-        if (transcript && onFinalTranscriptRef.current) {
+        if (shouldProcess && transcript && onFinalTranscriptRef.current) {
           onFinalTranscriptRef.current(transcript);
         }
         finalTranscriptRef.current = '';

@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { applyTranscriptToJournalFields, type JournalFields, type JournalFramework } from './journalVoice';
 
 export interface PersonalizedPlan {
   planName: string;
@@ -12,6 +13,12 @@ interface PlanInput {
   purpose: string;
   experience: string;
   interests: string[];
+}
+
+function getGeminiApiKey(): string | undefined {
+  const viteKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  const runtimeKey = (globalThis as any)?.process?.env?.GEMINI_API_KEY as string | undefined;
+  return viteKey || runtimeKey;
 }
 
 // Fallback mapping mirroring Onboarding.tsx INTEREST_OPTIONS
@@ -64,11 +71,10 @@ function getFallbackPlan(interests: string[]): PersonalizedPlan {
 }
 
 export async function generatePersonalizedPlan(input: PlanInput): Promise<PersonalizedPlan> {
-  // @ts-ignore
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
-    console.warn('VITE_GEMINI_API_KEY not set, using fallback plan');
+    console.warn('Gemini API key not set, using fallback plan');
     return getFallbackPlan(input.interests);
   }
 
@@ -121,4 +127,142 @@ Do not include any text outside the JSON object.`;
     console.error('Gemini API error, using fallback plan:', error);
     return getFallbackPlan(input.interests);
   }
+}
+
+export interface GeminiJournalVoiceResult {
+  transcript: string;
+  fields: JournalFields;
+}
+
+function getGeminiClient() {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
+
+function stripCodeFences(text: string): string {
+  return text.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
+}
+
+function safeText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+async function blobToBase64(audio: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') {
+        reject(new Error('Unable to read audio blob.'));
+        return;
+      }
+      const base64 = result.split(',')[1];
+      if (!base64) {
+        reject(new Error('Failed to encode audio to base64.'));
+        return;
+      }
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('FileReader failed while encoding audio.'));
+    reader.readAsDataURL(audio);
+  });
+}
+
+function buildJournalVoicePrompt(framework: JournalFramework): string {
+  const frameworkNote =
+    framework === 'HEAR'
+      ? 'HEAR sections: f1=Highlight, f2=Explain, f3=Apply, f4=Respond.'
+      : framework === 'SOAP'
+        ? 'SOAP sections: f1=Scripture, f2=Observation, f3=Application, f4=Prayer.'
+        : 'Free Write: put everything in f1 and keep f2/f3/f4 empty.';
+
+  return `You are processing a spoken Christian journal reflection.
+
+Tasks:
+1) Transcribe the audio accurately.
+2) Populate journal fields according to the selected framework.
+3) Keep wording faithful to the speaker. Do not add theology not present in the audio.
+
+Framework:
+${framework}
+${frameworkNote}
+
+Return ONLY valid JSON with this exact shape:
+{
+  "transcript": "full transcript text",
+  "fields": {
+    "f1": "text",
+    "f2": "text",
+    "f3": "text",
+    "f4": "text"
+  }
+}`;
+}
+
+function normalizeGeminiFields(framework: JournalFramework, transcript: string, parsedFields: Partial<JournalFields> | null): JournalFields {
+  const base: JournalFields = { f1: '', f2: '', f3: '', f4: '' };
+
+  if (parsedFields) {
+    const merged: JournalFields = {
+      f1: safeText(parsedFields.f1),
+      f2: safeText(parsedFields.f2),
+      f3: safeText(parsedFields.f3),
+      f4: safeText(parsedFields.f4)
+    };
+    if (merged.f1 || merged.f2 || merged.f3 || merged.f4) {
+      return merged;
+    }
+  }
+
+  return applyTranscriptToJournalFields(framework, transcript, base);
+}
+
+export async function transcribeJournalAudioWithGemini(
+  audioBlob: Blob,
+  framework: JournalFramework
+): Promise<GeminiJournalVoiceResult> {
+  const ai = getGeminiClient();
+  if (!ai) {
+    throw new Error('Gemini API key is not configured.');
+  }
+
+  const base64Audio = await blobToBase64(audioBlob);
+  const mimeType = audioBlob.type || 'audio/webm';
+  const prompt = buildJournalVoicePrompt(framework);
+
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash-exp'];
+  let lastError: unknown = null;
+
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: [
+          { text: prompt },
+          { inlineData: { mimeType, data: base64Audio } }
+        ],
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.1,
+          maxOutputTokens: 1200
+        }
+      });
+
+      const raw = stripCodeFences(response.text?.trim() || '');
+      const parsed = JSON.parse(raw);
+      const transcript = safeText(parsed?.transcript);
+
+      if (!transcript) {
+        throw new Error('Gemini response missing transcript.');
+      }
+
+      const fields = normalizeGeminiFields(framework, transcript, parsed?.fields ?? null);
+      return { transcript, fields };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Gemini audio transcription failed.');
 }
