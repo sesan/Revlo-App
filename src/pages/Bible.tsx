@@ -189,6 +189,13 @@ export default function Bible() {
       {
         user_id: newHighlight.user_id,
         passage_id: newHighlight.passage_id,
+        word_start: newHighlight.word_start,
+        word_end: newHighlight.word_end,
+        color: newHighlight.color,
+      },
+      {
+        user_id: newHighlight.user_id,
+        passage_id: newHighlight.passage_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
         verse: Number(newHighlight.verse),
@@ -205,6 +212,15 @@ export default function Bible() {
         verse: Number(newHighlight.verse),
         translation: newHighlight.translation,
         show_in_all_translations: newHighlight.show_in_all_translations,
+        word_start: newHighlight.word_start,
+        word_end: newHighlight.word_end,
+        color: newHighlight.color,
+      },
+      {
+        user_id: newHighlight.user_id,
+        book: newHighlight.book,
+        chapter: newHighlight.chapter,
+        verse: Number(newHighlight.verse),
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
@@ -548,7 +564,7 @@ export default function Bible() {
 
         const newHighlight = {
           user_id: user.id,
-          passage_id: passageUuid || currentPassage.id,
+          passage_id: passageUuid,
           book: currentPassage.book,
           chapter: currentPassage.chapter,
           verse: selectedWords[0].verseId,
