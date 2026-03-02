@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mic, X, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import BottomSheet from './BottomSheet';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
 
@@ -27,12 +27,10 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
   const [showToast, setShowToast] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useLockBodyScroll(isOpen);
-
   if (!isOpen) return null;
 
-  const contextVerses = selectedVerses && selectedVerses.length > 0 
-    ? selectedVerses 
+  const contextVerses = selectedVerses && selectedVerses.length > 0
+    ? selectedVerses
     : [currentPassage.verses[0]];
 
   const verseReference = contextVerses.length > 1
@@ -46,7 +44,6 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
     setSaving(true);
 
     try {
-      // Save journal entry as a note (journal_entries table doesn't exist yet)
       const journalContent = `
 ${framework === 'HEAR' ? 'Highlight' : framework === 'SOAP' ? 'Scripture' : 'Reflection'}: ${fields.f1}
 
@@ -74,7 +71,6 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
       setTimeout(() => {
         setShowToast(false);
         onClose();
-        // Reset fields
         setFields({ f1: '', f2: '', f3: '', f4: '' });
       }, 2000);
 
@@ -89,7 +85,6 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
   const toggleRecording = (field: string) => {
     if (isRecording === field) {
       setIsRecording(null);
-      // Mock transcription
       setFields(prev => ({
         ...prev,
         [field]: prev[field as keyof typeof prev] + " [Transcribed text from voice]"
@@ -139,8 +134,8 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
               <button
                 onClick={() => toggleRecording(section.id)}
                 className={`p-2 rounded-full transition-colors ${
-                  isRecording === section.id 
-                    ? 'text-error bg-error/10 animate-pulse' 
+                  isRecording === section.id
+                    ? 'text-error bg-error/10 animate-pulse'
                     : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
                 }`}
                 aria-label={`Record voice for ${section.letter}`}
@@ -160,70 +155,67 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl bg-bg-base sm:rounded-2xl h-[90vh] sm:h-[85vh] flex flex-col animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10 duration-300">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-bg-base/95 backdrop-blur rounded-t-2xl z-10">
-          <button onClick={onClose} className="p-2 -ml-2 text-text-muted hover:text-text-primary rounded-full hover:bg-bg-hover transition-colors">
-            <X size={24} />
-          </button>
-          <h2 className="text-[16px] font-bold tracking-tight text-text-primary">Journal Entry</h2>
-          <button 
-            onClick={handleSave}
-            disabled={saving}
-            className="text-[14px] font-medium text-gold hover:text-gold-hover px-2 -mr-2 disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 overscroll-contain pb-[calc(env(safe-area-inset-bottom)+80px)]">
-          {/* Verse Context Card */}
-          <div className="bg-bg-surface border border-border rounded-xl p-4 mb-6 border-l-[3px] border-l-gold">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-gold mb-1 font-medium">
-              REFLECTING ON
-            </p>
-            <h2 className="text-[14px] font-medium text-text-primary mb-1">
-              {verseReference}
-            </h2>
-            <p className="text-[14px] text-text-secondary italic line-clamp-2">
-              "{verseText}"
-            </p>
-          </div>
-
-          {/* Framework Selector */}
-          <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
-            {(['HEAR', 'SOAP', 'Free Write'] as Framework[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFramework(f)}
-                className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
-                  framework === f
-                    ? 'bg-gold text-text-inverse border-gold'
-                    : 'bg-transparent text-gold border-gold-border hover:bg-gold/10'
-                }`}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-
-          {/* Dynamic Sections */}
-          {renderSections()}
-        </div>
-
-        {/* Success Toast */}
-        {showToast && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
-            <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-gold" />
-              <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>
-            </div>
-          </div>
-        )}
+    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={92}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <button onClick={onClose} className="p-2 -ml-2 text-text-muted hover:text-text-primary rounded-full hover:bg-bg-hover transition-colors">
+          <X size={24} />
+        </button>
+        <h2 className="text-[16px] font-bold tracking-tight text-text-primary">Journal Entry</h2>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="text-[14px] font-medium text-gold hover:text-gold-hover px-2 -mr-2 disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </div>
-    </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[calc(env(safe-area-inset-bottom)+80px)]">
+        {/* Verse Context Card */}
+        <div className="bg-bg-surface border border-border rounded-xl p-4 mb-6 border-l-[3px] border-l-gold">
+          <p className="text-[10px] uppercase tracking-[0.1em] text-gold mb-1 font-medium">
+            REFLECTING ON
+          </p>
+          <h2 className="text-[14px] font-medium text-text-primary mb-1">
+            {verseReference}
+          </h2>
+          <p className="text-[14px] text-text-secondary italic line-clamp-2">
+            "{verseText}"
+          </p>
+        </div>
+
+        {/* Framework Selector */}
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-2 scrollbar-hide">
+          {(['HEAR', 'SOAP', 'Free Write'] as Framework[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFramework(f)}
+              className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
+                framework === f
+                  ? 'bg-gold text-text-inverse border-gold'
+                  : 'bg-transparent text-gold border-gold-border hover:bg-gold/10'
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+
+        {/* Dynamic Sections */}
+        {renderSections()}
+      </div>
+
+      {/* Success Toast */}
+      {showToast && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-gold" />
+            <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>
+          </div>
+        </div>
+      )}
+    </BottomSheet>
   );
 }

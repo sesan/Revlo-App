@@ -9,6 +9,7 @@ import { fetchPassage as fetchBiblePassage } from '../lib/bibleApi';
 import BottomNav from '../components/BottomNav';
 import { SkeletonVerse } from '../components/Skeleton';
 import JournalSheet from '../components/JournalSheet';
+import BottomSheet from '../components/BottomSheet';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 
@@ -963,136 +964,133 @@ export default function Bible() {
       </div>
 
       {/* Book/Chapter Selector Modal */}
-      {showSelector && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-bg-base animate-in slide-in-from-bottom-full duration-200">
-          <div className="flex items-center justify-between p-4 border-b border-border bg-bg-base">
-            <div className="flex items-center gap-3">
-              {selectorBook ? (
-                <button onClick={() => setSelectorBook(null)} className="p-2 -ml-2 text-text-primary">
-                  <ArrowLeft size={24} />
+      <BottomSheet
+        isOpen={showSelector}
+        onClose={() => { setShowSelector(false); setSelectorBook(null); }}
+        fullScreen
+        showHandle={false}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-3">
+            {selectorBook ? (
+              <button onClick={() => setSelectorBook(null)} className="p-2 -ml-2 text-text-primary">
+                <ArrowLeft size={24} />
+              </button>
+            ) : null}
+            <h2 className="text-[18px] font-bold tracking-tighter text-text-primary">
+              {selectorBook ? selectorBook.name : 'Select Book'}
+            </h2>
+          </div>
+          <button
+            onClick={() => { setShowSelector(false); setSelectorBook(null); }}
+            className="p-2 -mr-2 text-text-muted hover:text-text-primary"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {!selectorBook ? (
+            <>
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search books..."
+                  value={selectorSearch}
+                  onChange={(e) => setSelectorSearch(e.target.value)}
+                  className="w-full bg-bg-input border border-border rounded-xl py-3 pl-10 pr-4 text-[15px] text-text-primary focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary"
+                />
+              </div>
+              <div className="space-y-1 pb-20">
+                {filteredBooks.map(book => (
+                  <button
+                    key={book.name}
+                    onClick={() => setSelectorBook(book)}
+                    className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-bg-hover text-left transition-colors"
+                  >
+                    <span className="text-[16px] font-medium text-text-primary">{book.name}</span>
+                    <span className="text-[13px] text-text-muted">{book.chapters} ch</span>
+                  </button>
+                ))}
+                {filteredBooks.length === 0 && (
+                  <p className="text-center text-text-muted py-8 text-[14px]">No books found matching "{selectorSearch}"</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-5 gap-2 pb-20">
+              {Array.from({ length: selectorBook.chapters }, (_, i) => i + 1).map(chapter => (
+                <button
+                  key={chapter}
+                  onClick={() => {
+                    navigate(`/bible/${selectorBook.name}/${chapter}`);
+                    setShowSelector(false);
+                    setSelectorBook(null);
+                  }}
+                  className="aspect-square flex items-center justify-center rounded-xl border border-border bg-bg-surface hover:bg-bg-hover hover:border-text-primary text-[16px] font-medium text-text-primary transition-colors"
+                >
+                  {chapter}
                 </button>
-              ) : null}
-              <h2 className="text-[18px] font-bold tracking-tighter text-text-primary">
-                {selectorBook ? selectorBook.name : 'Select Book'}
-              </h2>
+              ))}
             </div>
-            <button 
-              onClick={() => { setShowSelector(false); setSelectorBook(null); }} 
-              className="p-2 -mr-2 text-text-muted hover:text-text-primary"
+          )}
+        </div>
+      </BottomSheet>
+
+      {/* Translation Selector Modal */}
+      <BottomSheet
+        isOpen={showTranslationSelector}
+        onClose={() => setShowTranslationSelector(false)}
+        maxHeight={70}
+      >
+        {/* Header */}
+        <div className="border-b border-border px-4 py-3 shrink-0">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold tracking-tight">Bible Translation</h2>
+            <button
+              onClick={() => setShowTranslationSelector(false)}
+              className="p-2 -mr-2 text-text-muted hover:text-text-primary transition-colors"
             >
               <X size={24} />
             </button>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-4">
-            {!selectorBook ? (
-              <>
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={18} />
-                  <input 
-                    type="text" 
-                    placeholder="Search books..." 
-                    value={selectorSearch}
-                    onChange={(e) => setSelectorSearch(e.target.value)}
-                    className="w-full bg-bg-input border border-border rounded-xl py-3 pl-10 pr-4 text-[15px] text-text-primary focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary"
-                  />
-                </div>
-                <div className="space-y-1 pb-20">
-                  {filteredBooks.map(book => (
-                    <button 
-                      key={book.name}
-                      onClick={() => setSelectorBook(book)}
-                      className="w-full flex items-center justify-between p-3 rounded-xl hover:bg-bg-hover text-left transition-colors"
-                    >
-                      <span className="text-[16px] font-medium text-text-primary">{book.name}</span>
-                      <span className="text-[13px] text-text-muted">{book.chapters} ch</span>
-                    </button>
-                  ))}
-                  {filteredBooks.length === 0 && (
-                    <p className="text-center text-text-muted py-8 text-[14px]">No books found matching "{selectorSearch}"</p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="grid grid-cols-5 gap-2 pb-20">
-                {Array.from({ length: selectorBook.chapters }, (_, i) => i + 1).map(chapter => (
-                  <button
-                    key={chapter}
-                    onClick={() => {
-                      navigate(`/bible/${selectorBook.name}/${chapter}`);
-                      setShowSelector(false);
-                      setSelectorBook(null);
-                    }}
-                    className="aspect-square flex items-center justify-center rounded-xl border border-border bg-bg-surface hover:bg-bg-hover hover:border-text-primary text-[16px] font-medium text-text-primary transition-colors"
-                  >
-                    {chapter}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <p className="text-sm text-text-muted mt-1">{translationName}</p>
         </div>
-      )}
 
-      {/* Translation Selector Modal */}
-      {showTranslationSelector && (
-        <div
-          className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
-          onClick={() => setShowTranslationSelector(false)}
-        >
-          <div
-            className="fixed inset-x-0 bottom-0 bg-bg-elevated rounded-t-2xl max-h-[70vh] overflow-hidden animate-in slide-in-from-bottom-full duration-300 pb-safe"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="sticky top-0 bg-bg-elevated border-b border-border p-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold tracking-tight">Bible Translation</h2>
-                <button
-                  onClick={() => setShowTranslationSelector(false)}
-                  className="p-2 -mr-2 text-text-muted hover:text-text-primary transition-colors"
-                >
-                  <X size={24} />
-                </button>
+        {/* Translation List */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {availableTranslations.map(t => (
+            <button
+              key={t.code}
+              onClick={() => {
+                setTranslation(t.code);
+                setShowTranslationSelector(false);
+              }}
+              className={`w-full flex items-center justify-between px-4 py-4 hover:bg-bg-hover transition-colors ${
+                translation === t.code ? 'bg-gold/10' : ''
+              }`}
+            >
+              <div className="text-left">
+                <div className="font-medium text-text-primary">{t.name}</div>
+                <div className="text-xs text-text-muted mt-0.5">
+                  {t.code.toUpperCase()} • {t.category === 'public' ? 'Public Domain' : t.category === 'modern' ? 'Modern' : 'Literal'}
+                </div>
               </div>
-              <p className="text-sm text-text-muted mt-1">{translationName}</p>
-            </div>
-
-            {/* Translation List */}
-            <div className="overflow-y-auto pb-safe">
-              {availableTranslations.map(t => (
-                <button
-                  key={t.code}
-                  onClick={() => {
-                    setTranslation(t.code);
-                    setShowTranslationSelector(false);
-                  }}
-                  className={`w-full flex items-center justify-between px-4 py-4 hover:bg-bg-hover transition-colors ${
-                    translation === t.code ? 'bg-gold/10' : ''
-                  }`}
-                >
-                  <div className="text-left">
-                    <div className="font-medium text-text-primary">{t.name}</div>
-                    <div className="text-xs text-text-muted mt-0.5">
-                      {t.code.toUpperCase()} • {t.category === 'public' ? 'Public Domain' : t.category === 'modern' ? 'Modern' : 'Literal'}
-                    </div>
-                  </div>
-                  {translation === t.code && (
-                    <Check size={20} className="text-gold shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            {/* Copyright Notice */}
-            <div className="sticky bottom-0 bg-bg-elevated border-t border-border p-3">
-              <p className="text-xs text-text-muted text-center">
-                {availableTranslations.find(t => t.code === translation)?.copyright}
-              </p>
-            </div>
-          </div>
+              {translation === t.code && (
+                <Check size={20} className="text-gold shrink-0" />
+              )}
+            </button>
+          ))}
         </div>
-      )}
+
+        {/* Copyright Notice */}
+        <div className="border-t border-border p-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shrink-0">
+          <p className="text-xs text-text-muted text-center">
+            {availableTranslations.find(t => t.code === translation)?.copyright}
+          </p>
+        </div>
+      </BottomSheet>
 
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && !isSelecting && !draggingPin && (
@@ -1228,10 +1226,14 @@ export default function Bible() {
       )}
 
       {/* Add Note Bottom Sheet */}
-      {showNoteSheet && currentPassage && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-bg-elevated rounded-t-2xl sm:rounded-2xl border border-border p-5 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10 max-h-[80vh] overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+20px)]">
-            <div className="flex justify-between items-center mb-4">
+      <BottomSheet
+        isOpen={showNoteSheet && !!currentPassage}
+        onClose={() => setShowNoteSheet(false)}
+        maxHeight={85}
+      >
+        {currentPassage && (
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex justify-between items-center px-5 py-3 border-b border-border shrink-0">
               <h3 className="text-[15px] font-bold tracking-tighter text-text-primary">
                 {currentPassage.book} {currentPassage.chapter}
                 {selectedWords.length > 0 && `:${selectedWords[0].verseId}`}
@@ -1241,93 +1243,95 @@ export default function Bible() {
               </button>
             </div>
 
-            {/* Existing Notes List */}
-            {selectedWords.length > 0 && notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').length > 0 && (
-              <div className="mb-4 space-y-3">
-                <h4 className="text-[12px] font-semibold text-text-secondary uppercase tracking-wider">Existing Notes</h4>
-                {notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').map(note => (
-                  <div key={note.id} className="bg-bg-surface border border-border rounded-xl p-3">
-                    <p className="text-[14px] text-text-primary whitespace-pre-wrap mb-2">{note.content}</p>
-                    {note.tags && note.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {note.tags.map((tag: string) => (
-                          <span key={tag} className="text-[10px] bg-bg-hover text-text-secondary px-1.5 py-0.5 rounded-full">#{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-                <div className="h-[1px] bg-border my-4"></div>
-              </div>
-            )}
-            
-            <div className="relative mb-4">
-              <textarea
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                placeholder="Write your note..."
-                className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none mb-3"
-                autoFocus
-              />
-              <span className="absolute bottom-16 right-3 text-[11px] text-text-muted">
-                {noteText.length}
-              </span>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+              {/* Existing Notes List */}
+              {selectedWords.length > 0 && notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').length > 0 && (
+                <div className="mb-4 space-y-3">
+                  <h4 className="text-[12px] font-semibold text-text-secondary uppercase tracking-wider">Existing Notes</h4>
+                  {notes.filter(n => n.verse === selectedWords[0].verseId && n.type === 'note').map(note => (
+                    <div key={note.id} className="bg-bg-surface border border-border rounded-xl p-3">
+                      <p className="text-[14px] text-text-primary whitespace-pre-wrap mb-2">{note.content}</p>
+                      {note.tags && note.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {note.tags.map((tag: string) => (
+                            <span key={tag} className="text-[10px] bg-bg-hover text-text-secondary px-1.5 py-0.5 rounded-full">#{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div className="h-[1px] bg-border my-4"></div>
+                </div>
+              )}
 
-              {/* Tag Input */}
-              <div className="flex flex-wrap gap-2 mb-2">
-                {noteTags.map(tag => (
-                  <span key={tag} className="bg-bg-surface border border-border text-text-secondary text-[12px] px-2 py-1 rounded-full flex items-center gap-1">
-                    #{tag}
-                    <button onClick={() => setNoteTags(noteTags.filter(t => t !== tag))} className="hover:text-error">
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && tagInput.trim()) {
-                      e.preventDefault();
-                      if (!noteTags.includes(tagInput.trim())) {
-                        setNoteTags([...noteTags, tagInput.trim()]);
-                      }
-                      setTagInput('');
-                    }
-                  }}
-                  placeholder="Add tag..."
-                  className="flex-1 bg-bg-input border border-border rounded-lg px-3 py-2 text-[14px] text-text-primary focus:outline-none focus:border-text-primary"
+              <div className="relative mb-4">
+                <textarea
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                  placeholder="Write your note..."
+                  className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none mb-3"
+                  autoFocus
                 />
-                <button 
-                  onClick={() => {
-                    if (tagInput.trim()) {
-                      if (!noteTags.includes(tagInput.trim())) {
-                        setNoteTags([...noteTags, tagInput.trim()]);
+                <span className="absolute bottom-16 right-3 text-[11px] text-text-muted">
+                  {noteText.length}
+                </span>
+
+                {/* Tag Input */}
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {noteTags.map(tag => (
+                    <span key={tag} className="bg-bg-surface border border-border text-text-secondary text-[12px] px-2 py-1 rounded-full flex items-center gap-1">
+                      #{tag}
+                      <button onClick={() => setNoteTags(noteTags.filter(t => t !== tag))} className="hover:text-error">
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        e.preventDefault();
+                        if (!noteTags.includes(tagInput.trim())) {
+                          setNoteTags([...noteTags, tagInput.trim()]);
+                        }
+                        setTagInput('');
                       }
-                      setTagInput('');
-                    }
-                  }}
-                  className="px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary hover:bg-bg-hover"
-                >
-                  <Plus size={18} />
+                    }}
+                    placeholder="Add tag..."
+                    className="flex-1 bg-bg-input border border-border rounded-lg px-3 py-2 text-[14px] text-text-primary focus:outline-none focus:border-text-primary"
+                  />
+                  <button
+                    onClick={() => {
+                      if (tagInput.trim()) {
+                        if (!noteTags.includes(tagInput.trim())) {
+                          setNoteTags([...noteTags, tagInput.trim()]);
+                        }
+                        setTagInput('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary hover:bg-bg-hover"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowNoteSheet(false)} className="btn-secondary flex-1">
+                  Cancel
+                </button>
+                <button onClick={handleSaveNote} className="btn-primary flex-1">
+                  Save
                 </button>
               </div>
             </div>
-            
-            <div className="flex gap-3">
-              <button onClick={() => setShowNoteSheet(false)} className="btn-secondary flex-1">
-                Cancel
-              </button>
-              <button onClick={handleSaveNote} className="btn-primary flex-1">
-                Save
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </BottomSheet>
 
       <BottomNav hidden={scrollDirection === 'down'} />
     </div>

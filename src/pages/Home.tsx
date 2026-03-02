@@ -11,6 +11,7 @@ import StatisticsDashboard from '../components/StatisticsDashboard';
 import MotivationalBanner from '../components/MotivationalBanner';
 import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import BottomSheet from '../components/BottomSheet';
 import { format, getDayOfYear, isSameDay, subDays } from 'date-fns';
 import { parseOnboardingAnswers } from '../lib/utils';
 import { getPersonalizedRecommendations, VerseRecommendation } from '../lib/recommendations';
@@ -550,38 +551,36 @@ export default function Home() {
 
       <BottomNav hidden={scrollDirection === 'down'} />
 
-      {/* Name Prompt Modal */}
-      {showNamePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-bg-elevated border border-border rounded-2xl p-6 w-full max-w-sm shadow-xl">
-            <h3 className="text-[20px] font-bold tracking-tighter text-text-primary mb-2">Welcome to Verse</h3>
-            <p className="text-[14px] text-text-secondary mb-4">What should we call you?</p>
+      {/* Name Prompt Bottom Sheet */}
+      <BottomSheet isOpen={showNamePrompt} onClose={() => {}} dragToDismiss={false}>
+        <div className="px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+          <h3 className="text-[20px] font-bold tracking-tighter text-text-primary mb-2">Welcome to Verse</h3>
+          <p className="text-[14px] text-text-secondary mb-4">What should we call you?</p>
 
-            <input
-              type="text"
-              placeholder="Your First Name"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              onKeyPress={handleNameKeyPress}
-              className="w-full bg-bg-input border border-border rounded-xl p-3 text-[15px] text-text-primary focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold mb-4"
-              autoFocus
-              disabled={nameSaving}
-            />
+          <input
+            type="text"
+            placeholder="Your First Name"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            onKeyPress={handleNameKeyPress}
+            className="w-full bg-bg-input border border-border rounded-xl p-3 text-[15px] text-text-primary focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold mb-4"
+            autoFocus
+            disabled={nameSaving}
+          />
 
-            {nameError && (
-              <p className="text-[13px] text-error mb-3">{nameError}</p>
-            )}
+          {nameError && (
+            <p className="text-[13px] text-error mb-3">{nameError}</p>
+          )}
 
-            <button
-              onClick={handleSaveName}
-              disabled={!nameInput.trim() || nameSaving}
-              className="btn-primary w-full"
-            >
-              {nameSaving ? 'Saving...' : 'Continue'}
-            </button>
-          </div>
+          <button
+            onClick={handleSaveName}
+            disabled={!nameInput.trim() || nameSaving}
+            className="btn-primary w-full"
+          >
+            {nameSaving ? 'Saving...' : 'Continue'}
+          </button>
         </div>
-      )}
+      </BottomSheet>
     </div>
   );
 }
