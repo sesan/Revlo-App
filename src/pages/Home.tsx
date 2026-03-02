@@ -6,12 +6,11 @@ import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
 import SetupChecklist from '../components/SetupChecklist';
-import RecommendationsCard from '../components/RecommendationsCard';
 import StatisticsDashboard from '../components/StatisticsDashboard';
 import MotivationalBanner from '../components/MotivationalBanner';
 import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
-import { format, differenceInDays, getDayOfYear, isSameDay, subDays } from 'date-fns';
+import { format, getDayOfYear, isSameDay, subDays } from 'date-fns';
 import { parseOnboardingAnswers } from '../lib/utils';
 import { getPersonalizedRecommendations, VerseRecommendation } from '../lib/recommendations';
 import { getMotivationalMessage, getDynamicSubtitle } from '../lib/motivationalMessages';
@@ -255,11 +254,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen pb-[80px] flex flex-col items-center">
-      <div className="w-full max-w-[600px] p-6">
-        {/* Top Bar */}
-        <div className="flex justify-between items-center mb-6 relative">
-          <h1 className="text-[20px] font-bold tracking-tighter text-text-primary">Verse</h1>
-          
+      <div className="w-full max-w-[760px] px-4 sm:px-6 py-5 space-y-6">
+        <div className="flex justify-between items-center relative">
+          <h1 className="text-[22px] font-bold tracking-tighter text-text-primary">Verse</h1>
+
           <div className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -286,35 +284,30 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Greeting */}
-        <div className="mb-8">
-          <h2 className="text-[26px] font-bold tracking-tighter text-text-primary mb-1">{getGreeting()}</h2>
-          <p className="text-[14px] text-text-secondary">{greetingSubtitle}</p>
-        </div>
+        <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-[#0f0f0f] via-[#202020] to-[#303030] text-white shadow-[0_24px_70px_-35px_rgba(0,0,0,0.5)]">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/75 mb-2">Daily Walk</p>
+          <h2 className="text-[30px] sm:text-[36px] leading-[1.05] font-bold tracking-tighter mb-2">{getGreeting()}</h2>
+          <p className="text-[14px] text-white/80 max-w-[520px]">{greetingSubtitle}</p>
 
-        {/* Streak Card */}
-        <div className="bg-bg-surface border border-border rounded-2xl p-5 mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${streak > 0 ? 'bg-orange-100 text-orange-500' : 'bg-bg-hover text-text-muted'}`}>
-              <Flame size={24} fill={streak > 0 ? "currentColor" : "none"} />
-            </div>
-            <div>
-              <h3 className="text-[16px] font-bold text-text-primary">
-                {streak} Day Streak
-              </h3>
-              <p className="text-[13px] text-text-secondary">
-                {streak > 0 ? "Keep the momentum going!" : "Start your streak today!"}
-              </p>
-            </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-[12px] font-medium">
+              <Flame size={14} /> {streak} day streak
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-[12px] font-medium">
+              <Calendar size={14} /> Day {profile?.current_day || 1} of 7
+            </span>
           </div>
-        </div>
 
-        {/* Motivational Banner */}
-        {motivationalMessage && (
-          <MotivationalBanner message={motivationalMessage} />
-        )}
+          <button
+            onClick={() => navigate('/bible')}
+            className="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-[#121212] px-5 py-2.5 text-[14px] font-semibold hover:bg-white/90 transition-colors"
+          >
+            Continue Reading <ChevronRight size={16} />
+          </button>
+        </section>
 
-        {/* Setup Checklist */}
+        {motivationalMessage && <MotivationalBanner message={motivationalMessage} />}
+
         <AnimatePresence>
           <SetupChecklist
             profile={profile}
@@ -324,61 +317,100 @@ export default function Home() {
           />
         </AnimatePresence>
 
-        {/* Verse of the Day */}
-        <div
-          onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
-          className="bg-bg-surface border border-border rounded-2xl p-5 mb-4 cursor-pointer hover:bg-bg-hover transition-colors border-l-[3px] border-l-gold"
-        >
-          <p className="text-[10px] uppercase tracking-[0.1em] text-text-muted mb-3 font-medium">Verse of the Day</p>
-          <p className="text-[15px] text-text-secondary italic leading-relaxed mb-3">
-            "{todayVerse.text}"
-          </p>
-          <p className="text-[13px] font-medium text-gold">{todayVerse.ref}</p>
-        </div>
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Bible Tools</h3>
+          </div>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+            <button
+              onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
+              className="min-w-[190px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+            >
+              <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted mb-2">Verse of the Day</p>
+              <p className="text-[14px] font-medium text-text-primary line-clamp-2 mb-1">{todayVerse.ref}</p>
+              <p className="text-[12px] text-text-secondary line-clamp-2">"{todayVerse.text}"</p>
+            </button>
+            <button
+              onClick={() => navigate('/bible')}
+              className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+            >
+              <BookOpen size={16} className="mb-2 text-gold" />
+              <p className="text-[14px] font-semibold text-text-primary">Bible Reader</p>
+              <p className="text-[12px] text-text-secondary">Jump into your chapter.</p>
+            </button>
+            <button
+              onClick={() => navigate('/journal')}
+              className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+            >
+              <PenTool size={16} className="mb-2 text-gold" />
+              <p className="text-[14px] font-semibold text-text-primary">Journal Mode</p>
+              <p className="text-[12px] text-text-secondary">Capture your reflection.</p>
+            </button>
+            <button
+              onClick={() => navigate('/notes')}
+              className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+            >
+              <Search size={16} className="mb-2 text-gold" />
+              <p className="text-[14px] font-semibold text-text-primary">Search Notes</p>
+              <p className="text-[12px] text-text-secondary">Find saved insights fast.</p>
+            </button>
+          </div>
+        </section>
 
-        {/* Recommendations Card */}
-        <RecommendationsCard
-          recommendations={recommendations}
-          loading={recommendationsLoading}
-        />
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Recommended Scripture</h3>
+          </div>
+          {recommendationsLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+              {recommendations.map((rec) => (
+                <button
+                  key={rec.ref}
+                  onClick={() => navigate(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`)}
+                  className="min-w-[240px] max-w-[260px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+                >
+                  <p className="text-[12px] font-semibold text-gold mb-2">{rec.ref}</p>
+                  <p className="text-[13px] italic text-text-secondary line-clamp-4 mb-3">"{rec.text}"</p>
+                  <p className="text-[12px] text-text-muted">{rec.reason}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-bg-surface border border-border rounded-2xl p-4">
+              <p className="text-[13px] text-text-secondary">Complete onboarding to unlock personalized verse rails.</p>
+            </div>
+          )}
+        </section>
 
-        {/* Today's Reading Card */}
-        <div
-          onClick={() => navigate('/bible')}
-          className="bg-bg-surface border border-border rounded-2xl p-5 mb-8 relative overflow-hidden cursor-pointer hover:border-gold transition-colors group"
-        >
-          <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-gold to-gold-hover"></div>
-          
+        <section className="rounded-2xl border border-border bg-bg-surface p-5">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-gold mb-2 font-medium flex items-center gap-1">
-                <Calendar size={12} />
-                TODAY'S READING
-              </p>
-              <h3 className="text-[20px] font-bold tracking-tighter text-text-primary mb-1 group-hover:text-gold transition-colors">
-                {profile?.current_plan || 'The Story of Jesus'}
-              </h3>
-              <p className="text-[14px] text-text-secondary">
-                Day {profile?.current_day || 1} • John 3
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.11em] text-text-muted mb-1">Continue Plan</p>
+              <h3 className="text-[20px] font-bold tracking-tight text-text-primary">{profile?.current_plan || 'The Story of Jesus'}</h3>
+              <p className="text-[13px] text-text-secondary">Day {profile?.current_day || 1} • Keep momentum</p>
             </div>
-            <div className="w-10 h-10 rounded-full bg-bg-hover flex items-center justify-center text-text-primary group-hover:bg-gold group-hover:text-white transition-colors">
-              <ChevronRight size={20} />
-            </div>
+            <button
+              onClick={() => navigate('/bible')}
+              className="w-10 h-10 rounded-full bg-bg-hover border border-border flex items-center justify-center text-text-primary hover:bg-gold hover:text-white hover:border-gold transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
-          
           <div className="h-1.5 bg-bg-hover rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gold rounded-full transition-all duration-500" 
+            <div
+              className="h-full bg-text-primary rounded-full transition-all duration-500"
               style={{ width: `${((profile?.current_day || 1) / 7) * 100}%` }}
-            ></div>
+            />
           </div>
-        </div>
+        </section>
 
-        {/* Recent Notes */}
-        <div>
+        <section>
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-[18px] font-bold tracking-tighter text-text-primary">Recent Notes</h3>
+            <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Recent Reflections</h3>
             <button
               onClick={() => navigate('/notes')}
               className="text-[13px] text-gold hover:underline font-medium"
@@ -386,51 +418,42 @@ export default function Home() {
               View all
             </button>
           </div>
-          
+
           {notesLoading ? (
-            <div className="space-y-3 mb-4">
+            <div className="space-y-3">
               {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
             </div>
           ) : recentNotes.length > 0 ? (
-            <div className="space-y-3 mb-4">
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
               {recentNotes.map((note) => (
-                <div key={note.id} onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined} className="bg-bg-surface border border-border rounded-xl p-4 hover:bg-bg-hover cursor-pointer transition-colors">
+                <button
+                  key={note.id}
+                  onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined}
+                  className="min-w-[240px] max-w-[260px] text-left bg-bg-surface border border-border rounded-2xl p-4 hover:border-gold transition-colors"
+                >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[13px] font-medium text-gold">
+                    <span className="text-[13px] font-semibold text-gold">
                       {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
                     </span>
-                    <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}
                     </span>
                   </div>
-                  <p className="text-[14px] text-text-secondary truncate mb-2">
+                  <p className="text-[13px] text-text-secondary line-clamp-3 mb-3">
                     {note.content || 'No preview available'}
                   </p>
-                  <p className="text-[11px] text-text-muted">
-                    {format(new Date(note.created_at), 'MMM d, yyyy')}
-                  </p>
-                  {profile?.current_plan && (
-                    <div className="border-t border-border mt-2 pt-2 flex items-center gap-2">
-                      <BookOpen size={12} className="text-gold flex-shrink-0" />
-                      <span className="text-[11px] text-text-secondary truncate">{profile.current_plan}</span>
-                      <span className="text-[11px] text-text-muted whitespace-nowrap">Day {profile.current_day || 1}/7</span>
-                      <div className="h-1 flex-1 bg-bg-hover rounded-full overflow-hidden min-w-[40px]">
-                        <div className="h-full bg-gold rounded-full" style={{ width: `${((profile.current_day || 1) / 7) * 100}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  <p className="text-[11px] text-text-muted">{format(new Date(note.created_at), 'MMM d')}</p>
+                </button>
               ))}
             </div>
           ) : (
-            <div className="bg-bg-surface border border-border rounded-xl p-6 text-center mb-4">
+            <div className="bg-bg-surface border border-border rounded-xl p-6 text-center">
               <p className="text-[14px] text-text-secondary mb-2">No notes yet.</p>
               <p className="text-[13px] text-text-muted">Start reading to add highlights and notes.</p>
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Statistics Dashboard */}
         {user && (
           <StatisticsDashboard
             userId={user.id}

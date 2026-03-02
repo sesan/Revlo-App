@@ -166,12 +166,32 @@ export default function Bible() {
     return byPassageId || byBookAndChapter;
   };
 
+  const resolvePassageUuid = async (bookName: string, chapterNo: string, verseNo: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('passages')
+        .select('id')
+        .eq('book', bookName)
+        .eq('chapter', Number(chapterNo))
+        .eq('verse', Number(verseNo))
+        .maybeSingle();
+
+      if (error) return null;
+      return data?.id || null;
+    } catch {
+      return null;
+    }
+  };
+
   const insertHighlightWithFallback = async (newHighlight: any) => {
     const payloads = [
       newHighlight,
       {
         user_id: newHighlight.user_id,
         passage_id: newHighlight.passage_id,
+        book: newHighlight.book,
+        chapter: newHighlight.chapter,
+        verse: Number(newHighlight.verse),
         translation: newHighlight.translation,
         show_in_all_translations: newHighlight.show_in_all_translations,
         word_start: newHighlight.word_start,
@@ -180,8 +200,17 @@ export default function Bible() {
       },
       {
         user_id: newHighlight.user_id,
+        book: newHighlight.book,
+        chapter: newHighlight.chapter,
+        verse: Number(newHighlight.verse),
         translation: newHighlight.translation,
         show_in_all_translations: newHighlight.show_in_all_translations,
+        word_start: newHighlight.word_start,
+        word_end: newHighlight.word_end,
+        color: newHighlight.color,
+      },
+      {
+        user_id: newHighlight.user_id,
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
@@ -189,10 +218,16 @@ export default function Bible() {
     ];
 
     let lastError: any = null;
+    const collectedErrors: string[] = [];
     for (const payload of payloads) {
       const { data, error } = await supabase.from('highlights').insert([payload]).select();
       if (!error) return data;
       lastError = error;
+      collectedErrors.push(error.message || String(error));
+    }
+
+    if (lastError && collectedErrors.length) {
+      lastError.message = `Insert failed after ${payloads.length} payload attempts: ${collectedErrors.join(' | ')}`;
     }
 
     throw lastError;
@@ -505,9 +540,15 @@ export default function Bible() {
         );
       } else {
         // Create new highlight
+        const passageUuid = await resolvePassageUuid(
+          currentPassage.book,
+          currentPassage.chapter,
+          selectedWords[0].verseId
+        );
+
         const newHighlight = {
           user_id: user.id,
-          passage_id: currentPassage.id,
+          passage_id: passageUuid || currentPassage.id,
           book: currentPassage.book,
           chapter: currentPassage.chapter,
           verse: selectedWords[0].verseId,
@@ -530,7 +571,8 @@ export default function Bible() {
       setSelectedWords([]);
     } catch (err) {
       console.error('Error saving highlight:', err);
-      alert('Could not save highlight. Please try again.');
+      const message = err instanceof Error ? err.message : 'Unknown database error';
+      alert(`Could not save highlight: ${message}`);
     }
   };
 
