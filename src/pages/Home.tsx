@@ -289,7 +289,7 @@ export default function Home() {
         {/* Greeting */}
         <div className="mb-8">
           <h2 className="text-[26px] font-bold tracking-tighter text-text-primary mb-1">{getGreeting()}</h2>
-          <p className="text-[14px] text-text-secondary">Ready to continue your journey?</p>
+          <p className="text-[14px] text-text-secondary">{greetingSubtitle}</p>
         </div>
 
         {/* Streak Card */}
@@ -308,6 +308,11 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Motivational Banner */}
+        {motivationalMessage && (
+          <MotivationalBanner message={motivationalMessage} />
+        )}
 
         {/* Setup Checklist */}
         <AnimatePresence>
@@ -330,6 +335,12 @@ export default function Home() {
           </p>
           <p className="text-[13px] font-medium text-gold">{todayVerse.ref}</p>
         </div>
+
+        {/* Recommendations Card */}
+        <RecommendationsCard
+          recommendations={recommendations}
+          loading={recommendationsLoading}
+        />
 
         {/* Today's Reading Card */}
         <div
@@ -418,6 +429,14 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {/* Statistics Dashboard */}
+        {user && (
+          <StatisticsDashboard
+            userId={user.id}
+            currentDay={profile?.current_day || 1}
+          />
+        )}
       </div>
 
       <BottomNav hidden={scrollDirection === 'down'} />
