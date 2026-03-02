@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, BookOpen, Plus, Trash2 } from 'lucide-react';
+import { Search, BookOpen, Plus, Trash2, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { useTranslation } from '../lib/TranslationContext';
@@ -23,6 +23,7 @@ export default function Notes() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+  const [replyCounts, setReplyCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -96,6 +97,21 @@ export default function Notes() {
       );
 
       setNotes(allItems);
+
+      // Fetch reply counts for notes (not highlights)
+      const noteIds = (notesData || []).map((n: any) => n.id);
+      if (noteIds.length > 0) {
+        const { data: replyRows } = await supabase
+          .from('note_replies')
+          .select('note_id')
+          .in('note_id', noteIds);
+
+        const counts: Record<string, number> = {};
+        (replyRows || []).forEach((r: any) => {
+          counts[r.note_id] = (counts[r.note_id] || 0) + 1;
+        });
+        setReplyCounts(counts);
+      }
 
       // Extract unique tags from both notes and highlights
       const tags = new Set<string>();
@@ -297,7 +313,15 @@ export default function Notes() {
               return (
                 <div
                   key={note.id}
-                  onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined}
+                  onClick={() => {
+                    if (note.type === 'highlight') {
+                      if (note.book && note.chapter) {
+                        navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
+                      }
+                    } else {
+                      navigate(`/notes/${note.id}`);
+                    }
+                  }}
                   className="bg-bg-surface border border-border rounded-2xl p-4 cursor-pointer hover:bg-bg-hover transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -323,6 +347,19 @@ export default function Notes() {
                     )}
                   </div>
 
+                  {/* Open in Bible link for non-highlight cards */}
+                  {note.type !== 'highlight' && note.book && note.chapter && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
+                      }}
+                      className="text-[12px] text-gold font-medium mb-2 hover:underline"
+                    >
+                      Open in Bible →
+                    </button>
+                  )}
+
                   <div className="flex justify-between items-center mt-auto pt-2">
                     <div className="flex gap-1.5 flex-wrap">
                       {note.tags?.map((tag: string) => (
@@ -347,8 +384,14 @@ export default function Notes() {
                         <Plus size={12} />
                       </button>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
+                      {replyCounts[note.id] > 0 && (
+                        <div className="flex items-center gap-1 text-text-muted">
+                          <MessageSquare size={12} />
+                          <span className="text-[11px]">{replyCounts[note.id]}</span>
+                        </div>
+                      )}
                       <span className="text-[11px] text-text-muted">
                         {format(new Date(note.created_at), 'MMM d')}
                       </span>

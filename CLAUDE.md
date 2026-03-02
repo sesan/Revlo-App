@@ -316,4 +316,25 @@ npm run clean           # Remove dist folder
 
 ---
 
+## **Commit Message Format**
+
+After every code change, provide a commit message for the user to manually copy. Use this format:
+
+```
+Short summary of the change (imperative mood)
+
+- Bullet point describing a specific change
+- Another specific change
+- Keep each point concise and focused
+- Include what was changed and why if not obvious
+```
+
+**Rules:**
+- Always use a short summary line first
+- Use `-` bullet points for each individual change
+- Do not use paragraph/prose style — list format only
+- Include the commit message in a code block so it's easy to copy
+
+---
+
 This is a well-structured, modern Bible study application with a strong focus on user experience, personalization, and mobile-first design. The codebase follows React best practices with TypeScript, context-based state management, and clean component separation.

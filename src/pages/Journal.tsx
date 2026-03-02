@@ -95,6 +95,7 @@ export default function Journal() {
             value={fields.f1}
             onChange={(e) => setFields({ ...fields, f1: e.target.value })}
             placeholder="Write freely..."
+            aria-label="Free write reflection"
             className="w-full bg-bg-input border border-border rounded-xl p-4 text-[15px] text-text-primary min-h-[300px] focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold resize-none"
           />
         </div>
@@ -139,6 +140,7 @@ export default function Journal() {
             <textarea
               value={fields[section.id as keyof typeof fields]}
               onChange={(e) => setFields({ ...fields, [section.id]: e.target.value })}
+              aria-label={section.prompt}
               className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[100px] focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold resize-none"
             />
           </div>
@@ -151,7 +153,7 @@ export default function Journal() {
     <div className="min-h-screen bg-bg-base flex flex-col pb-[80px]">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-bg-base/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-text-primary">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-text-primary" aria-label="Go back">
           <ArrowLeft size={24} />
         </button>
         <h1 className="font-bold tracking-tighter text-[20px] text-text-primary">Journal Entry</h1>
@@ -184,6 +186,7 @@ export default function Journal() {
             <button
               key={f}
               onClick={() => setFramework(f)}
+              aria-pressed={framework === f}
               className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
                 framework === f
                   ? 'bg-gold text-text-inverse border-gold'
@@ -201,7 +204,7 @@ export default function Journal() {
 
       {/* Success Toast */}
       {showToast && (
-        <div className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div role="status" aria-live="polite" className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-gold" />
             <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>

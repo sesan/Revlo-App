@@ -10,7 +10,7 @@ export default function BottomNav({ hidden = false }: { hidden?: boolean }) {
   ];
 
   return (
-    <nav className={`fixed bottom-0 left-0 right-0 bg-bg-elevated border-t border-border pb-safe z-50 transition-transform duration-300 ease-in-out ${hidden ? 'translate-y-full' : 'translate-y-0'}`}>
+    <nav aria-label="Primary navigation" className={`fixed bottom-0 left-0 right-0 bg-bg-elevated border-t border-border pb-safe z-50 transition-transform duration-300 ease-in-out ${hidden ? 'translate-y-full' : 'translate-y-0'}`}>
       <div className="flex justify-around items-center h-[60px] max-w-md mx-auto">
         {navItems.map((item) => (
           <NavLink

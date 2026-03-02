@@ -102,6 +102,7 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
             value={fields.f1}
             onChange={(e) => setFields({ ...fields, f1: e.target.value })}
             placeholder="Write freely..."
+            aria-label="Free write reflection"
             className="w-full bg-bg-input border border-border rounded-xl p-4 text-[15px] text-text-primary min-h-[300px] focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold resize-none"
           />
         </div>
@@ -146,6 +147,7 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
             <textarea
               value={fields[section.id as keyof typeof fields]}
               onChange={(e) => setFields({ ...fields, [section.id]: e.target.value })}
+              aria-label={section.prompt}
               className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[100px] focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold resize-none"
             />
           </div>
@@ -155,10 +157,10 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
   };
 
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={92}>
+    <BottomSheet isOpen={isOpen} onClose={onClose} maxHeight={92} ariaLabel="Journal entry">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-        <button onClick={onClose} className="p-2 -ml-2 text-text-muted hover:text-text-primary rounded-full hover:bg-bg-hover transition-colors">
+        <button onClick={onClose} className="p-2 -ml-2 text-text-muted hover:text-text-primary rounded-full hover:bg-bg-hover transition-colors" aria-label="Close journal sheet">
           <X size={24} />
         </button>
         <h2 className="text-[16px] font-bold tracking-tight text-text-primary">Journal Entry</h2>
@@ -192,6 +194,7 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
             <button
               key={f}
               onClick={() => setFramework(f)}
+              aria-pressed={framework === f}
               className={`px-4 py-2 rounded-full text-[13px] font-medium whitespace-nowrap transition-colors border ${
                 framework === f
                   ? 'bg-gold text-text-inverse border-gold'
@@ -209,7 +212,7 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
 
       {/* Success Toast */}
       {showToast && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div role="status" aria-live="polite" className="absolute bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-gold" />
             <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>

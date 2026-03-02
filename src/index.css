@@ -18,16 +18,16 @@
 
   --color-text-primary: #111111;
   --color-text-secondary: #666666;
-  --color-text-muted: #999999;
+  --color-text-muted: #6D6D6D;
   --color-text-inverse: #FFFFFF;
 
   --color-gold: #111111;
   --color-gold-hover: #333333;
   --color-gold-subtle: #F0F0F0;
-  --color-gold-border: #E5E5E5;
+  --color-gold-border: #858585;
 
   --color-success: #111111;
-  --color-error: #FF3B30;
+  --color-error: #C62828;
   --color-warning: #FF9500;
 
   --color-highlight-yellow: var(--color-highlight-yellow);
@@ -36,7 +36,7 @@
   --color-highlight-pink: var(--color-highlight-pink);
   --color-highlight-red: var(--color-highlight-red);
 
-  --color-border: #E5E5E5;
+  --color-border: #858585;
   --color-border-focus: #111111;
 
   --font-sans: 'Inter', sans-serif;
@@ -44,14 +44,34 @@
 }
 
 @layer base {
+  html {
+    /* Enable smooth scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent bounce on iOS when scrolling */
+    overscroll-behavior-y: none;
+  }
+
   body {
     @apply bg-bg-base text-text-primary font-sans antialiased;
     font-size: 16px;
     line-height: 1.6;
+    /* Ensure body can scroll */
+    overflow-y: auto;
+    /* Enable momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Prevent rubber-band effect */
+    overscroll-behavior-y: none;
+    /* Enable smooth touch scrolling */
+    touch-action: pan-y;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-sans font-bold tracking-tighter leading-tight;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
   }
 }
 
@@ -62,6 +82,20 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Mobile-friendly scrolling */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+
+  /* Prevent scroll when locked (for modals) */
+  .scroll-locked {
+    overflow: hidden !important;
+    position: fixed;
+    width: 100%;
   }
 }
 

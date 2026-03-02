@@ -94,6 +94,8 @@ export default function Bible() {
   const [draggingPin, setDraggingPin] = useState<'start' | 'end' | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<{verseId: string, wordIndex: number} | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const suppressClickTimer = useRef<NodeJS.Timeout | null>(null);
+  const suppressNextClickRef = useRef(false);
   const touchStartPos = useRef<{x: number, y: number} | null>(null);
   const justFinishedSelection = useRef(false);
   const verseRefs = useRef<{[key: string]: HTMLDivElement | null}>({});
@@ -159,6 +161,25 @@ export default function Bible() {
       }, 500);
     }
   }, [loading, currentPassage]);
+
+  useEffect(() => {
+    return () => {
+      if (suppressClickTimer.current) {
+        clearTimeout(suppressClickTimer.current);
+        suppressClickTimer.current = null;
+      }
+    };
+  }, []);
+
+  const markSuppressClick = () => {
+    suppressNextClickRef.current = true;
+    if (suppressClickTimer.current) {
+      clearTimeout(suppressClickTimer.current);
+    }
+    suppressClickTimer.current = setTimeout(() => {
+      suppressNextClickRef.current = false;
+    }, 350);
+  };
 
   const isHighlightInCurrentPassage = (highlight: any) => {
     if (!currentPassage || !highlight) return false;
@@ -313,7 +334,52 @@ export default function Bible() {
     }
   };
 
+  const selectWholeVerse = (verseId: string) => {
+    if (!currentPassage) return;
+    const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
+    if (!verse) return;
+
+    const wordCount = verse.text.split(' ').length;
+    const newSelection = Array.from({ length: wordCount }, (_, i) => ({
+      verseId,
+      wordIndex: i
+    }));
+
+    setSelectionStart(newSelection[0]);
+    setSelectedWords(newSelection);
+    updatePopupPosition(newSelection);
+    setShowColorPicker(false);
+  };
+
+  const selectHighlightRange = (highlight: any) => {
+    if (!currentPassage) return;
+
+    const newSelection: {verseId: string, wordIndex: number}[] = [];
+    let currentIndex = 0;
+    for (const v of currentPassage.verses) {
+      const words = v.text.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        if (currentIndex >= highlight.word_start && currentIndex <= highlight.word_end) {
+          newSelection.push({ verseId: v.verse.toString(), wordIndex: i });
+        }
+        currentIndex++;
+      }
+    }
+
+    if (newSelection.length > 0) {
+      setSelectionStart(newSelection[0]);
+      setSelectedWords(newSelection);
+      updatePopupPosition(newSelection);
+      setShowColorPicker(false);
+    }
+  };
+
   const handlePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+
     const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
     touchStartPos.current = { x: clientX, y: clientY };
@@ -329,30 +395,14 @@ export default function Bible() {
     }, 200);
   };
 
-  const handleVersePointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string) => {
+  const handleVerseTouchStart = (e: React.TouchEvent, verseId: string) => {
     if (!currentPassage) return;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
-    touchStartPos.current = { x: clientX, y: clientY };
-
-    longPressTimer.current = setTimeout(() => {
-      const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
-      if (!verse) return;
-
-      setIsSelecting(true);
-      const wordCount = verse.text.split(' ').length;
-      const newSelection = Array.from({ length: wordCount }, (_, i) => ({
-        verseId,
-        wordIndex: i
-      }));
-
-      setSelectionStart(newSelection[0]);
-      setSelectedWords(newSelection);
-      updatePopupPosition(newSelection);
-      setShowColorPicker(false);
-      if (navigator.vibrate) navigator.vibrate(50);
-    }, 200);
+    e.stopPropagation();
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+    markSuppressClick();
+    selectWholeVerse(verseId);
   };
 
   const handleWordPointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
@@ -361,30 +411,14 @@ export default function Bible() {
     const highlight = getHighlightForWord(verseId, wordIndex);
     if (highlight) {
       e.stopPropagation();
-      // Prevent synthetic mouse events after touch so we don't fall back to long-press behavior.
       if ('touches' in e && e.cancelable) {
         e.preventDefault();
+        markSuppressClick();
       }
-
-      // If tapping a highlighted word on mobile, select the whole highlight immediately
-      let newSelection: {verseId: string, wordIndex: number}[] = [];
-      let currentIndex = 0;
-      for (const v of currentPassage.verses) {
-        const words = v.text.split(' ');
-        for (let i = 0; i < words.length; i++) {
-          if (currentIndex >= highlight.word_start && currentIndex <= highlight.word_end) {
-            newSelection.push({ verseId: v.verse.toString(), wordIndex: i });
-          }
-          currentIndex++;
-        }
-      }
-      setSelectedWords(newSelection);
-      updatePopupPosition(newSelection);
-      setShowColorPicker(false);
+      selectHighlightRange(highlight);
       return;
     }
     
-    // Otherwise, fall back to normal long press behavior
     handlePointerDown(e, verseId, wordIndex);
   };
 
@@ -416,8 +450,6 @@ export default function Bible() {
        e.preventDefault();
     }
 
-    // On mobile, look up slightly above the finger so the user can see what they are selecting
-    // Removed offset as per user request to start exactly where the finger is
     const lookupY = clientY;
     const element = document.elementFromPoint(clientX, lookupY);
 
@@ -426,7 +458,6 @@ export default function Bible() {
       const wordIndex = parseInt(element.getAttribute('data-word-index')!, 10);
       
       if (draggingPin && selectionAnchor) {
-        // @ts-ignore
         const newSelection = getWordsInRange(selectionAnchor, { verseId, wordIndex });
         setSelectedWords(newSelection);
         updatePopupPosition(newSelection);
@@ -458,7 +489,7 @@ export default function Bible() {
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
     e.stopPropagation();
-    if (isSelecting || isMobile || isTouchPointer) return; // Disable single-tap selection on touch devices
+    if (isSelecting || isTouchPointer || suppressNextClickRef.current) return;
     
     if (selectedWords.length > 0) {
       const isWordSelected = selectedWords.some(w => w.verseId === verseId && w.wordIndex === wordIndex);
@@ -473,20 +504,21 @@ export default function Bible() {
     let newSelection = [{ verseId, wordIndex }];
 
     if (highlight && currentPassage) {
-      // Select the entire highlight
-      newSelection = [];
+      const highlightedSelection: {verseId: string, wordIndex: number}[] = [];
       let currentIndex = 0;
       for (const v of currentPassage.verses) {
         const words = v.text.split(' ');
         for (let i = 0; i < words.length; i++) {
           if (currentIndex >= highlight.word_start && currentIndex <= highlight.word_end) {
-            newSelection.push({ verseId: v.verse.toString(), wordIndex: i });
+            highlightedSelection.push({ verseId: v.verse.toString(), wordIndex: i });
           }
           currentIndex++;
         }
       }
+      newSelection = highlightedSelection.length > 0 ? highlightedSelection : newSelection;
     }
     
+    setSelectionStart(newSelection[0]);
     setSelectedWords(newSelection);
     updatePopupPosition(newSelection);
     setShowColorPicker(false);
@@ -494,19 +526,8 @@ export default function Bible() {
 
   const handleVerseClick = (e: React.MouseEvent, verseId: string) => {
     e.stopPropagation();
-    if (!currentPassage || isMobile || isTouchPointer) return; // Disable single-tap selection on touch devices
-    const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
-    if (!verse) return;
-
-    const wordCount = verse.text.split(' ').length;
-    const newSelection = Array.from({ length: wordCount }, (_, i) => ({
-      verseId,
-      wordIndex: i
-    }));
-
-    setSelectedWords(newSelection);
-    updatePopupPosition(newSelection);
-    setShowColorPicker(false);
+    if (!currentPassage || isTouchPointer || suppressNextClickRef.current) return;
+    selectWholeVerse(verseId);
   };
 
   const handleHighlight = async (color: string) => {
@@ -758,7 +779,7 @@ export default function Bible() {
     <div className="min-h-screen bg-bg-base flex flex-col relative pb-[120px]">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-bg-base/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
-        <button onClick={() => navigate('/home')} className="p-2 -ml-2 text-text-primary">
+        <button onClick={() => navigate('/home')} className="p-2 -ml-2 text-text-primary" aria-label="Go to home">
           <ArrowLeft size={24} />
         </button>
 
@@ -769,6 +790,7 @@ export default function Bible() {
               setSelectorBook(null);
               setShowSelector(true);
             }}
+            aria-label="Select Bible book and chapter"
             className="flex items-center gap-1.5 bg-bg-surface px-4 py-1.5 rounded-full border border-border hover:border-text-muted transition-colors"
           >
             <span className="font-bold tracking-tighter text-[16px] text-text-primary">
@@ -781,6 +803,8 @@ export default function Bible() {
             onClick={() => setShowTranslationSelector(true)}
             className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-bg-surface border border-border hover:border-text-muted transition-colors"
             aria-label="Select Bible translation"
+            aria-haspopup="dialog"
+            aria-expanded={showTranslationSelector}
           >
             <BookOpen size={14} />
             <span className="text-[13px] font-semibold">{translation.toUpperCase()}</span>
@@ -790,12 +814,15 @@ export default function Bible() {
         <div className="flex items-center gap-1 -mr-2">
           <button
             onClick={toggleFontStyle}
+            aria-label={`Switch verse font style. Current: ${fontStyle === 'serif' ? 'Serif' : 'Sans'}`}
+            aria-pressed={fontStyle === 'serif'}
             className={`px-2.5 py-1 rounded-full text-[13px] font-medium border transition-colors ${fontStyle === 'serif' ? 'bg-gold text-text-inverse border-gold' : 'bg-transparent text-text-primary border-border hover:bg-bg-hover'}`}
           >
             {fontStyle === 'serif' ? 'Serif' : 'Sans'}
           </button>
           <button
             onClick={() => setTextSize(s => s >= 24 ? 15 : s + 2)}
+            aria-label={`Increase verse text size. Current size ${textSize}px`}
             className="p-2 text-text-primary"
           >
             <Type size={20} />
@@ -809,12 +836,14 @@ export default function Bible() {
           <button 
             onClick={handlePrevChapter}
             disabled={currentPassage.chapter === '1'}
+            aria-label="Previous chapter"
             className="pointer-events-auto w-10 h-10 rounded-full bg-bg-elevated/90 backdrop-blur border border-border flex items-center justify-center text-text-primary shadow-sm disabled:opacity-0 transition-all hover:bg-bg-hover hover:scale-105 active:scale-95"
           >
             <ChevronLeft size={24} />
           </button>
           <button 
             onClick={handleNextChapter}
+            aria-label="Next chapter"
             className="pointer-events-auto w-10 h-10 rounded-full bg-bg-elevated/90 backdrop-blur border border-border flex items-center justify-center text-text-primary shadow-sm transition-all hover:bg-bg-hover hover:scale-105 active:scale-95"
           >
             <ChevronRight size={24} />
@@ -869,14 +898,15 @@ export default function Bible() {
                     }}
                   >
                     <div className="flex flex-col items-center mr-2 mt-1.5 min-w-[16px] shrink-0">
-                      <span 
+                      <button
+                        type="button"
                         onClick={(e) => handleVerseClick(e, v.verse.toString())}
-                        onTouchStart={(e) => handleVersePointerDown(e, v.verse.toString())}
-                        onMouseDown={(e) => handleVersePointerDown(e, v.verse.toString())}
-                        className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium select-none"
+                        onTouchStart={(e) => handleVerseTouchStart(e, v.verse.toString())}
+                        aria-label={`Select verse ${v.verse}`}
+                        className="text-[11px] text-text-muted hover:text-text-primary cursor-pointer transition-colors font-medium select-none bg-transparent border-0 p-0 leading-none"
                       >
                         {v.verse}
-                      </span>
+                      </button>
                       {hasNote && (
                         <div className="mt-1">
                           <MessageSquare size={10} className="text-gold fill-gold" />
@@ -901,7 +931,10 @@ export default function Bible() {
                           data-word-index={i}
                           onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
                           onTouchStart={(e) => handleWordPointerDown(e, v.verse.toString(), i)}
-                          onMouseDown={(e) => (isMobile || isTouchPointer) ? handleWordPointerDown(e, v.verse.toString(), i) : handlePointerDown(e, v.verse.toString(), i)}
+                          onMouseDown={(e) => {
+                            if (isTouchPointer) return;
+                            handlePointerDown(e, v.verse.toString(), i);
+                          }}
                           className={`relative cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/30' : ''}`}
                           style={{
                             backgroundColor: highlightColor && !isSelected 
@@ -969,11 +1002,12 @@ export default function Bible() {
         onClose={() => { setShowSelector(false); setSelectorBook(null); }}
         fullScreen
         showHandle={false}
+        ariaLabel={selectorBook ? `Select chapter in ${selectorBook.name}` : 'Select Bible book'}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <div className="flex items-center gap-3">
             {selectorBook ? (
-              <button onClick={() => setSelectorBook(null)} className="p-2 -ml-2 text-text-primary">
+              <button onClick={() => setSelectorBook(null)} className="p-2 -ml-2 text-text-primary" aria-label="Back to books list">
                 <ArrowLeft size={24} />
               </button>
             ) : null}
@@ -984,6 +1018,7 @@ export default function Bible() {
           <button
             onClick={() => { setShowSelector(false); setSelectorBook(null); }}
             className="p-2 -mr-2 text-text-muted hover:text-text-primary"
+            aria-label="Close selector"
           >
             <X size={24} />
           </button>
@@ -997,6 +1032,7 @@ export default function Bible() {
                 <input
                   type="text"
                   placeholder="Search books..."
+                  aria-label="Search Bible books"
                   value={selectorSearch}
                   onChange={(e) => setSelectorSearch(e.target.value)}
                   className="w-full bg-bg-input border border-border rounded-xl py-3 pl-10 pr-4 text-[15px] text-text-primary focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary"
@@ -1043,6 +1079,7 @@ export default function Bible() {
         isOpen={showTranslationSelector}
         onClose={() => setShowTranslationSelector(false)}
         maxHeight={70}
+        ariaLabel="Select Bible translation"
       >
         {/* Header */}
         <div className="border-b border-border px-4 py-3 shrink-0">
@@ -1051,6 +1088,7 @@ export default function Bible() {
             <button
               onClick={() => setShowTranslationSelector(false)}
               className="p-2 -mr-2 text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Close translation selector"
             >
               <X size={24} />
             </button>
@@ -1067,6 +1105,7 @@ export default function Bible() {
                 setTranslation(t.code);
                 setShowTranslationSelector(false);
               }}
+              aria-pressed={translation === t.code}
               className={`w-full flex items-center justify-between px-4 py-4 hover:bg-bg-hover transition-colors ${
                 translation === t.code ? 'bg-gold/10' : ''
               }`}
@@ -1096,6 +1135,8 @@ export default function Bible() {
       {selectedWords.length > 0 && !isSelecting && !draggingPin && (
         <>
           <div 
+            role="dialog"
+            aria-label="Selected text actions"
             className={`fixed z-50 bg-bg-elevated border border-border shadow-2xl overflow-hidden animate-in duration-200 ${
               isMobile
                 ? 'bottom-0 left-0 right-0 rounded-t-2xl slide-in-from-bottom-full pb-safe' 
@@ -1117,7 +1158,7 @@ export default function Bible() {
               <div className={`flex flex-col ${isMobile ? 'w-full max-h-[80vh] overscroll-contain pb-[calc(env(safe-area-inset-bottom)+20px)]' : 'w-56 max-h-[calc(100vh-120px)]'} overflow-y-auto`}>
                 <div className={`flex justify-between items-center ${isMobile ? 'px-4 py-3' : 'px-3 py-2'} border-b border-border bg-bg-surface`}>
                   <span className={`${isMobile ? 'text-[12px]' : 'text-[11px]'} font-semibold text-text-secondary uppercase tracking-wider`}>Highlight Theme</span>
-                  <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1">
+                  <button onClick={() => setShowColorPicker(false)} className="text-text-muted hover:text-text-primary transition-colors p-1" aria-label="Close highlight theme picker">
                     <X size={16} className={isMobile ? 'w-5 h-5' : 'w-3.5 h-3.5'} />
                   </button>
                 </div>
@@ -1149,6 +1190,7 @@ export default function Bible() {
                       <div className="absolute inset-0 bg-[conic-gradient(red,yellow,green,cyan,blue,magenta,red)] pointer-events-none" />
                       <input 
                         type="color" 
+                        aria-label="Choose custom highlight color"
                         className="absolute inset-[-10px] w-[40px] h-[40px] cursor-pointer opacity-0"
                         onChange={(e) => handleHighlight(e.target.value)}
                       />
@@ -1194,7 +1236,7 @@ export default function Bible() {
 
       {/* Success Toast */}
       {showToast && (
-        <div className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div role="status" aria-live="polite" className="fixed bottom-[80px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
           <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-gold" />
             <span className="text-[14px] text-text-primary font-medium">Copied to clipboard</span>
@@ -1218,6 +1260,7 @@ export default function Bible() {
         isOpen={showNoteSheet && !!currentPassage}
         onClose={() => setShowNoteSheet(false)}
         maxHeight={85}
+        ariaLabel="Add note"
       >
         {currentPassage && (
           <div className="flex flex-col flex-1 min-h-0">
@@ -1226,7 +1269,7 @@ export default function Bible() {
                 {currentPassage.book} {currentPassage.chapter}
                 {selectedWords.length > 0 && `:${selectedWords[0].verseId}`}
               </h3>
-              <button onClick={() => setShowNoteSheet(false)} className="text-text-muted hover:text-text-primary">
+              <button onClick={() => setShowNoteSheet(false)} className="text-text-muted hover:text-text-primary" aria-label="Close note sheet">
                 <X size={20} />
               </button>
             </div>
@@ -1257,6 +1300,7 @@ export default function Bible() {
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Write your note..."
+                  aria-label="Write note"
                   className="w-full bg-bg-input border border-border rounded-xl p-3.5 text-[15px] text-text-primary min-h-[120px] focus:outline-none focus:border-text-primary focus:ring-1 focus:ring-text-primary resize-none mb-3"
                   autoFocus
                 />
@@ -1269,7 +1313,7 @@ export default function Bible() {
                   {noteTags.map(tag => (
                     <span key={tag} className="bg-bg-surface border border-border text-text-secondary text-[12px] px-2 py-1 rounded-full flex items-center gap-1">
                       #{tag}
-                      <button onClick={() => setNoteTags(noteTags.filter(t => t !== tag))} className="hover:text-error">
+                      <button onClick={() => setNoteTags(noteTags.filter(t => t !== tag))} className="hover:text-error" aria-label={`Remove tag ${tag}`}>
                         <X size={12} />
                       </button>
                     </span>
@@ -1280,6 +1324,7 @@ export default function Bible() {
                     type="text"
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
+                    aria-label="Add tag"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && tagInput.trim()) {
                         e.preventDefault();
@@ -1302,6 +1347,7 @@ export default function Bible() {
                       }
                     }}
                     className="px-3 py-2 bg-bg-surface border border-border rounded-lg text-text-primary hover:bg-bg-hover"
+                    aria-label="Add tag"
                   >
                     <Plus size={18} />
                   </button>

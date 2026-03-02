@@ -13,6 +13,7 @@ import Home from './pages/Home';
 import Bible from './pages/Bible';
 import Journal from './pages/Journal';
 import Notes from './pages/Notes';
+import NoteDetail from './pages/NoteDetail';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -42,7 +43,7 @@ function AnimatedRoutes() {
         <Route path="/journal" element={<ProtectedRoute><PageTransition><Journal /></PageTransition></ProtectedRoute>} />
         <Route path="/journal/:id" element={<ProtectedRoute><PageTransition><Journal /></PageTransition></ProtectedRoute>} />
         <Route path="/notes" element={<ProtectedRoute><PageTransition><Notes /></PageTransition></ProtectedRoute>} />
-        <Route path="/notes/:id" element={<ProtectedRoute><PageTransition><Notes /></PageTransition></ProtectedRoute>} />
+        <Route path="/notes/:id" element={<ProtectedRoute><PageTransition><NoteDetail /></PageTransition></ProtectedRoute>} />
       </Routes>
     </AnimatePresence>
   );

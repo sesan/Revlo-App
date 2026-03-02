@@ -66,6 +66,8 @@ export default function Home() {
   const [lastActivityDate, setLastActivityDate] = useState<Date | null>(null);
   const [recommendations, setRecommendations] = useState<VerseRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const profileButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const todayVerse = VERSES_OF_THE_DAY[getDayOfYear(new Date()) % VERSES_OF_THE_DAY.length];
 
@@ -221,6 +223,39 @@ export default function Home() {
     }
   }, [user, fetchRecentNotes, calculateStreak]);
 
+  useEffect(() => {
+    if (!showProfileMenu) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(target) &&
+        profileButtonRef.current &&
+        !profileButtonRef.current.contains(target)
+      ) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowProfileMenu(false);
+        profileButtonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showProfileMenu]);
+
   // Auto-prompt for name if profile is incomplete
   useEffect(() => {
     if (profile && !profile.full_name && !showNamePrompt) {
@@ -295,7 +330,7 @@ export default function Home() {
     }
   };
 
-  const handleNameKeyPress = (e: React.KeyboardEvent) => {
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSaveName();
     }
@@ -341,21 +376,26 @@ export default function Home() {
 
           <div className="relative">
             <button
+              ref={profileButtonRef}
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="w-10 h-10 rounded-full bg-bg-elevated border border-border flex items-center justify-center text-[14px] font-medium text-text-primary hover:border-gold transition-colors focus:outline-none focus:ring-2 focus:ring-gold"
               aria-label="Profile menu"
+              aria-haspopup="menu"
+              aria-expanded={showProfileMenu}
+              aria-controls="profile-menu"
             >
               {getInitials(profile?.full_name)}
             </button>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-bg-elevated border border-border rounded-xl shadow-xl overflow-hidden z-50">
+              <div ref={profileMenuRef} id="profile-menu" role="menu" className="absolute right-0 mt-2 w-48 bg-bg-elevated border border-border rounded-xl shadow-xl overflow-hidden z-50">
                 <div className="p-4 border-b border-border">
                   <p className="text-[14px] font-medium text-text-primary truncate">{profile?.full_name}</p>
                   <p className="text-[12px] text-text-muted truncate">{profile?.email}</p>
                 </div>
                 <button
                   onClick={handleSignOut}
+                  role="menuitem"
                   className="w-full text-left px-4 py-3 text-[14px] text-error hover:bg-bg-hover flex items-center gap-2"
                 >
                   <LogOut size={16} /> Sign Out
@@ -483,6 +523,7 @@ export default function Home() {
             <button
               onClick={() => navigate('/bible')}
               className="w-10 h-10 rounded-full bg-bg-hover border border-border flex items-center justify-center text-text-primary hover:bg-gold hover:text-white hover:border-gold transition-colors"
+              aria-label="Continue to Bible reading plan"
             >
               <ChevronRight size={18} />
             </button>
@@ -552,7 +593,7 @@ export default function Home() {
       <BottomNav hidden={scrollDirection === 'down'} />
 
       {/* Name Prompt Bottom Sheet */}
-      <BottomSheet isOpen={showNamePrompt} onClose={() => {}} dragToDismiss={false}>
+      <BottomSheet isOpen={showNamePrompt} onClose={() => {}} dragToDismiss={false} ariaLabel="Enter your name">
         <div className="px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
           <h3 className="text-[20px] font-bold tracking-tighter text-text-primary mb-2">Welcome to Verse</h3>
           <p className="text-[14px] text-text-secondary mb-4">What should we call you?</p>
@@ -560,16 +601,17 @@ export default function Home() {
           <input
             type="text"
             placeholder="Your First Name"
+            aria-label="Your first name"
             value={nameInput}
             onChange={(e) => setNameInput(e.target.value)}
-            onKeyPress={handleNameKeyPress}
+            onKeyDown={handleNameKeyDown}
             className="w-full bg-bg-input border border-border rounded-xl p-3 text-[15px] text-text-primary focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold mb-4"
             autoFocus
             disabled={nameSaving}
           />
 
           {nameError && (
-            <p className="text-[13px] text-error mb-3">{nameError}</p>
+            <p className="text-[13px] text-error mb-3" aria-live="polite">{nameError}</p>
           )}
 
           <button
