@@ -62,8 +62,6 @@ ${framework === 'HEAR' ? 'Respond' : framework === 'SOAP' ? 'Prayer' : 'Prayer'}
         .insert([{
           user_id: user.id,
           passage_id: currentPassage.id,
-          translation: translation,
-          show_in_all_translations: false,
           content: journalContent,
           type: 'journal',
           framework: framework === 'Free Write' ? 'free' : framework,

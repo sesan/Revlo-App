@@ -196,34 +196,26 @@ export default function Bible() {
         book: newHighlight.book,
         chapter: newHighlight.chapter,
         verse: String(newHighlight.verse),
-        translation: newHighlight.translation,
-        show_in_all_translations: newHighlight.show_in_all_translations,
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
-        tags: newHighlight.tags,
       },
       {
         user_id: newHighlight.user_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
         verse: String(newHighlight.verse),
-        translation: newHighlight.translation,
-        show_in_all_translations: newHighlight.show_in_all_translations,
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
-        tags: newHighlight.tags,
       },
       {
         user_id: newHighlight.user_id,
         book: newHighlight.book,
         chapter: newHighlight.chapter,
-        translation: newHighlight.translation,
         word_start: newHighlight.word_start,
         word_end: newHighlight.word_end,
         color: newHighlight.color,
-        tags: newHighlight.tags,
       },
     ];
 
@@ -249,14 +241,12 @@ export default function Bible() {
         supabase
           .from('highlights')
           .select('*')
-          .eq('user_id', user?.id)
-          .or(`translation.eq.${translation},show_in_all_translations.eq.true`),
+          .eq('user_id', user?.id),
         supabase
           .from('notes')
           .select('*')
           .eq('user_id', user?.id)
           .eq('passage_id', currentPassage?.id)
-          .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
       ]);
 
       if (highlightsRes.error) throw highlightsRes.error;
@@ -562,12 +552,9 @@ export default function Bible() {
           book: currentPassage.book,
           chapter: currentPassage.chapter,
           verse: selectedWords[0].verseId,
-          translation: translation,
-          show_in_all_translations: false,
           word_start: minFlat,
           word_end: maxFlat,
-          color: color,
-          tags: [color] // Auto-tag with color name
+          color: color
         };
 
         const data = await insertHighlightWithFallback(newHighlight);

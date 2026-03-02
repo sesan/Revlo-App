@@ -7,4 +7,15 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
 export const isSupabaseConfigured = supabaseUrl !== 'https://placeholder.supabase.co';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
+  },
+});

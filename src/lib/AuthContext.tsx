@@ -23,16 +23,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // First, get all profiles for this user (to detect duplicates)
+      const { data: profiles, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
-        .single();
-      
+        .eq('id', userId);
+
       if (error) {
         console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (!profiles || profiles.length === 0) {
+        console.log('No profile found, will be created on signup/login');
+        setProfile(null);
       } else {
-        setProfile(data);
+        if (profiles.length > 1) {
+          console.warn('Multiple profiles found for user, using first one:', profiles.length);
+        }
+        setProfile(profiles[0]);
+        console.log('Profile fetched successfully:', profiles[0]);
       }
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);

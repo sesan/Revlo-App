@@ -94,7 +94,7 @@ Return ONLY a valid JSON object with these exact keys:
 Do not include any text outside the JSON object.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-2.0-flash-exp',
       contents: prompt,
       config: {
         maxOutputTokens: 300,

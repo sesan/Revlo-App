@@ -44,25 +44,43 @@ export default function Signup() {
 
       if (error) throw error;
 
-      // Create profile record if not automatically created by trigger
+      // Wait a moment for session to be established
       if (data.user) {
-        const { error: profileError } = await supabase
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Check if profile exists
+        const { data: existingProfile } = await supabase
           .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              email: data.user.email,
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (existingProfile) {
+          // Update existing profile
+          await supabase
+            .from('profiles')
+            .update({
+              email: email,
               full_name: fullName,
               onboarding_complete: false,
-            },
-          ]);
-
-        if (profileError && profileError.code !== '23505') { // Ignore unique constraint error if trigger handled it
-          console.error('Error creating profile:', profileError);
+            })
+            .eq('id', data.user.id);
+        } else {
+          // Insert new profile
+          await supabase
+            .from('profiles')
+            .insert([
+              {
+                id: data.user.id,
+                email: email,
+                full_name: fullName,
+                onboarding_complete: false,
+              },
+            ]);
         }
       }
 
-      navigate('/onboarding');
+      navigate('/home');
     } catch (err: any) {
       if (err.message === 'Failed to fetch') {
         setError('Failed to connect to database. Please configure Supabase URL and Key.');

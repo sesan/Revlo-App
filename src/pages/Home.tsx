@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, PenTool, Search, LogOut, Flame, Calendar, ChevronRight } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
@@ -70,112 +70,20 @@ export default function Home() {
 
   // Parse onboarding answers
   const { purpose, experience, interests } = useMemo(() => {
-    const parsed = parseOnboardingAnswers(profile?.onboarding_answers);
-    console.log('Parsed onboarding:', parsed);
-    return parsed;
+    return parseOnboardingAnswers(profile?.onboarding_answers);
   }, [profile?.onboarding_answers]);
 
-  // Generate personalized recommendations
-  useEffect(() => {
-    console.log('Recommendations effect running:', { profile: !!profile, interestsLength: interests.length });
-    if (profile && interests.length > 0) {
-      try {
-        setRecommendationsLoading(true);
-        const recs = getPersonalizedRecommendations({
-          purpose,
-          experience,
-          interests,
-          currentPlan: profile.current_plan,
-        });
-        console.log('Generated recommendations:', recs);
-        setRecommendations(recs);
-      } catch (error) {
-        console.error('Error generating recommendations:', error);
-        setRecommendations([]);
-      } finally {
-        setRecommendationsLoading(false);
-      }
-    } else {
-      console.log('Skipping recommendations - no profile or interests');
-      setRecommendationsLoading(false);
-    }
-  }, [profile, purpose, experience, interests]);
+  // Calculate streak and fetch notes functions (must be before useEffect that uses them)
+  const calculateStreak = useCallback(async () => {
+    if (!user?.id) return;
 
-  // Get motivational message
-  const motivationalMessage = useMemo(() => {
-    if (!profile) return null;
-
-    return getMotivationalMessage({
-      purpose,
-      streak,
-      hasActivityToday,
-      lastActivityDate,
-    });
-  }, [profile, purpose, streak, hasActivityToday, lastActivityDate]);
-
-  // Get dynamic subtitle for greeting
-  const greetingSubtitle = useMemo(() => {
-    return getDynamicSubtitle({
-      purpose,
-      streak,
-      hasActivityToday,
-    });
-  }, [purpose, streak, hasActivityToday]);
-
-  useEffect(() => {
-    if (user) {
-      fetchRecentNotes();
-      calculateStreak();
-    }
-  }, [user]);
-
-  const triggerNamePrompt = () => setShowNamePrompt(true);
-
-  const handleSaveName = async () => {
-    if (!nameInput.trim() || nameSaving) return;
-
-    setNameSaving(true);
-    setNameError('');
-
-    try {
-      console.log('Saving name:', nameInput.trim(), 'for user:', user?.id);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ full_name: nameInput.trim() })
-        .eq('id', user?.id)
-        .select();
-
-      console.log('Update result:', { data, error });
-
-      if (error) throw error;
-
-      await refreshProfile();
-      setShowNamePrompt(false);
-      setNameInput('');
-      console.log('Name saved successfully');
-    } catch (err: any) {
-      console.error('Error saving name:', err);
-      setNameError(err.message || 'Failed to save name. Please try again.');
-    } finally {
-      setNameSaving(false);
-    }
-  };
-
-  const handleNameKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSaveName();
-    }
-  };
-
-  const calculateStreak = async () => {
     try {
       // Fetch dates of recent activity (notes, highlights, journal)
       // For simplicity, we'll just check notes for now as a proxy for activity
       const { data: notesData } = await supabase
         .from('notes')
         .select('created_at')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (!notesData || notesData.length === 0) {
@@ -226,9 +134,11 @@ export default function Home() {
     } catch (err) {
       console.error('Error calculating streak:', err);
     }
-  };
+  }, [user?.id]);
 
-  const fetchRecentNotes = async () => {
+  const fetchRecentNotes = useCallback(async () => {
+    if (!user?.id) return;
+
     try {
       setNotesLoading(true);
       const { data, error } = await supabase
@@ -242,7 +152,7 @@ export default function Home() {
           chapter,
           verse
         `)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -252,6 +162,141 @@ export default function Home() {
       console.error('Error fetching notes:', err);
     } finally {
       setNotesLoading(false);
+    }
+  }, [user?.id]);
+
+  // Generate personalized recommendations
+  // Use JSON.stringify to prevent infinite loops from array reference changes
+  const interestsKey = JSON.stringify(interests);
+
+  useEffect(() => {
+    if (profile && interests.length > 0) {
+      try {
+        setRecommendationsLoading(true);
+        const recs = getPersonalizedRecommendations({
+          purpose,
+          experience,
+          interests,
+          currentPlan: profile.current_plan,
+        });
+        setRecommendations(recs);
+      } catch (error) {
+        console.error('Error generating recommendations:', error);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    } else {
+      setRecommendationsLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id, purpose, experience, interestsKey]);
+
+  // Get motivational message
+  const motivationalMessage = useMemo(() => {
+    if (!profile) return null;
+
+    return getMotivationalMessage({
+      purpose,
+      streak,
+      hasActivityToday,
+      lastActivityDate,
+    });
+  }, [profile?.id, purpose, streak, hasActivityToday, lastActivityDate]);
+
+  // Get dynamic subtitle for greeting
+  const greetingSubtitle = useMemo(() => {
+    return getDynamicSubtitle({
+      purpose,
+      streak,
+      hasActivityToday,
+    });
+  }, [purpose, streak, hasActivityToday]);
+
+  useEffect(() => {
+    if (user) {
+      fetchRecentNotes();
+      calculateStreak();
+    }
+  }, [user, fetchRecentNotes, calculateStreak]);
+
+  // Auto-prompt for name if profile is incomplete
+  useEffect(() => {
+    if (profile && !profile.full_name && !showNamePrompt) {
+      // Wait a moment for UI to load, then show prompt
+      const timer = setTimeout(() => {
+        setShowNamePrompt(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [profile, showNamePrompt]);
+
+  const triggerNamePrompt = () => setShowNamePrompt(true);
+
+  const handleSaveName = async () => {
+    if (!nameInput.trim() || nameSaving) return;
+
+    setNameSaving(true);
+    setNameError('');
+
+    try {
+      console.log('Saving name:', nameInput.trim(), 'for user:', user?.id);
+
+      // First, check if profile exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user?.id)
+        .maybeSingle();
+
+      console.log('Existing profile check:', { existingProfile, checkError });
+
+      if (checkError) throw checkError;
+
+      if (!existingProfile) {
+        // Create profile if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{
+            id: user?.id,
+            email: user?.email,
+            full_name: nameInput.trim()
+          }]);
+
+        if (insertError) throw insertError;
+        console.log('Profile created with name and email');
+      } else {
+        // Update existing profile (include email in case it's missing)
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            email: user?.email || existingProfile.email,
+            full_name: nameInput.trim()
+          })
+          .eq('id', user?.id);
+
+        if (updateError) throw updateError;
+        console.log('Profile name and email updated');
+      }
+
+      // Success - close modal and refresh
+      setShowNamePrompt(false);
+      setNameInput('');
+      console.log('Name saved successfully, refreshing profile...');
+
+      // Refresh profile to update UI
+      await refreshProfile();
+    } catch (err: any) {
+      console.error('Error saving name:', err);
+      setNameError(err.message || 'Failed to save name. Please try again.');
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
+  const handleNameKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
     }
   };
 

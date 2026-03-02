@@ -51,18 +51,37 @@ export const TranslationProvider = ({ children }: { children: React.ReactNode })
     localStorage.setItem('bible-translation', translation);
   }, [translation]);
 
-  // Sync to Supabase when user is authenticated
+  // Sync to Supabase when user is authenticated (debounced)
   useEffect(() => {
-    const syncToSupabase = async () => {
-      if (user?.id) {
-        await supabase
-          .from('profiles')
-          .update({ preferred_translation: translation })
-          .eq('id', user.id);
-      }
-    };
+    if (!user?.id) return;
 
-    syncToSupabase();
+    const timer = setTimeout(async () => {
+      try {
+        // Check if profile exists and has required fields
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, email, full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        // Only update if profile exists and has email/name (fully initialized)
+        if (existingProfile && existingProfile.email && existingProfile.full_name) {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ preferred_translation: translation })
+            .eq('id', user.id);
+
+          if (error) {
+            console.log('Translation sync failed:', error.message);
+          }
+        }
+      } catch (err) {
+        // Silently fail
+        console.log('Translation sync skipped:', err);
+      }
+    }, 1000); // Wait 1 second before syncing to avoid multiple requests
+
+    return () => clearTimeout(timer);
   }, [translation, user?.id]);
 
   const setTranslation = (code: string) => {

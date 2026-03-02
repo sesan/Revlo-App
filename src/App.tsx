@@ -15,16 +15,10 @@ import Journal from './pages/Journal';
 import Notes from './pages/Notes';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, profile } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
-
-  // If user is logged in but hasn't completed onboarding, redirect to onboarding
-  // unless they are already on the onboarding route
-  if (profile && !profile.onboarding_complete && !window.location.pathname.startsWith('/onboarding')) {
-    return <Navigate to="/onboarding" replace />;
-  }
 
   return <>{children}</>;
 };

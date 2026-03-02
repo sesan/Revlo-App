@@ -39,8 +39,8 @@ export default function Notes() {
     try {
       setLoading(true);
 
-      // Fetch notes with translation filter
-      const { data: notesData, error: notesError } = await supabase
+      // Fetch notes with translation filter (backward compatible)
+      const { data: notesData, error: notesError} = await supabase
         .from('notes')
         .select(`
           id,
@@ -51,16 +51,14 @@ export default function Notes() {
           created_at,
           book,
           chapter,
-          verse,
-          translation
+          verse
         `)
         .eq('user_id', user?.id)
-        .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
         .order('created_at', { ascending: false });
 
       if (notesError) throw notesError;
 
-      // Fetch highlights with translation filter
+      // Fetch highlights (backward compatible)
       const { data: highlightsData, error: highlightsError } = await supabase
         .from('highlights')
         .select(`
@@ -71,12 +69,9 @@ export default function Notes() {
           chapter,
           verse,
           word_start,
-          word_end,
-          translation,
-          tags
+          word_end
         `)
         .eq('user_id', user?.id)
-        .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
         .order('created_at', { ascending: false });
 
       if (highlightsError) throw highlightsError;
@@ -87,12 +82,12 @@ export default function Notes() {
         content: `Highlighted text (${h.color})`,
         type: 'highlight',
         color: h.color,
-        tags: h.tags || [h.color], // Use existing tags or default to color name
+        tags: h.tags || [h.color] || [], // Use existing tags or default to color name or empty
         created_at: h.created_at,
         book: h.book,
         chapter: h.chapter,
         verse: h.verse,
-        translation: h.translation,
+        translation: h.translation || 'web',
       }));
 
       // Merge notes and highlights, sort by date
