@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { KJV_PASSAGES } from '../lib/data';
 import BottomNav from '../components/BottomNav';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
 
 export default function Journal() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const scrollDirection = useScrollDirection();
   const { id } = useParams(); // If editing an existing journal
 
   const [framework, setFramework] = useState<Framework>('HEAR');
@@ -207,7 +209,7 @@ export default function Journal() {
         </div>
       )}
 
-      <BottomNav />
+      <BottomNav hidden={scrollDirection === 'down'} />
     </div>
   );
 }

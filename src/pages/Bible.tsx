@@ -6,6 +6,7 @@ import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
 import JournalSheet from '../components/JournalSheet';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 
 const BIBLE_BOOKS = [
   { name: 'Genesis', chapters: 50 }, { name: 'Exodus', chapters: 40 }, { name: 'Leviticus', chapters: 27 },
@@ -72,7 +73,8 @@ export default function Bible() {
   const [notes, setNotes] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [showFloatingNav, setShowFloatingNav] = useState(true);
-  
+  const scrollDirection = useScrollDirection();
+
   // Lock body scroll when sheets are open on mobile
   useLockBodyScroll(isMobile && (showColorPicker || showNoteSheet));
 
@@ -1152,7 +1154,7 @@ export default function Bible() {
         </div>
       )}
 
-      {/* BottomNav removed as per user request to focus on reading */}
+      <BottomNav hidden={scrollDirection === 'down'} />
     </div>
   );
 }

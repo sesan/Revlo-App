@@ -4,11 +4,13 @@ import { BookOpen, PenTool, Search, LogOut, Flame, Calendar, ChevronRight } from
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 import { format, differenceInDays, isSameDay, subDays } from 'date-fns';
 
 export default function Home() {
   const { profile, user, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const scrollDirection = useScrollDirection();
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [streak, setStreak] = useState(0);
@@ -257,17 +259,11 @@ export default function Home() {
           {recentNotes.length > 0 ? (
             <div className="space-y-3 mb-4">
               {recentNotes.map((note) => (
-                <div key={note.id} onClick={() => navigate(`/notes/${note.id}`)} className="bg-bg-surface border border-border rounded-xl p-4 hover:bg-bg-hover cursor-pointer transition-colors">
+                <div key={note.id} onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined} className="bg-bg-surface border border-border rounded-xl p-4 hover:bg-bg-hover cursor-pointer transition-colors">
                   <div className="flex justify-between items-start mb-2">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/bible/${note.book}/${note.chapter}?verse=${note.verse}`);
-                      }}
-                      className="text-[13px] font-medium text-gold hover:underline text-left"
-                    >
+                    <span className="text-[13px] font-medium text-gold">
                       {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
-                    </button>
+                    </span>
                     <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}
                     </span>
@@ -278,6 +274,16 @@ export default function Home() {
                   <p className="text-[11px] text-text-muted">
                     {format(new Date(note.created_at), 'MMM d, yyyy')}
                   </p>
+                  {profile?.current_plan && (
+                    <div className="border-t border-border mt-2 pt-2 flex items-center gap-2">
+                      <BookOpen size={12} className="text-gold flex-shrink-0" />
+                      <span className="text-[11px] text-text-secondary truncate">{profile.current_plan}</span>
+                      <span className="text-[11px] text-text-muted whitespace-nowrap">Day {profile.current_day || 1}/7</span>
+                      <div className="h-1 flex-1 bg-bg-hover rounded-full overflow-hidden min-w-[40px]">
+                        <div className="h-full bg-gold rounded-full" style={{ width: `${((profile.current_day || 1) / 7) * 100}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -290,7 +296,7 @@ export default function Home() {
         </div>
       </div>
 
-      <BottomNav />
+      <BottomNav hidden={scrollDirection === 'down'} />
 
       {/* Name Prompt Modal */}
       {showNamePrompt && (

@@ -4,6 +4,7 @@ import { Search, BookOpen, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 import { format } from 'date-fns';
 
 type FilterType = 'All' | 'Highlights' | 'Notes' | 'Journal' | 'Voice' | 'Bookmarks';
@@ -11,6 +12,7 @@ type FilterType = 'All' | 'Highlights' | 'Notes' | 'Journal' | 'Voice' | 'Bookma
 export default function Notes() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const scrollDirection = useScrollDirection();
   const [notes, setNotes] = useState<any[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -240,21 +242,15 @@ export default function Notes() {
               const isExpanded = expandedNoteId === note.id;
               
               return (
-                <div 
-                  key={note.id} 
-                  onClick={() => setExpandedNoteId(isExpanded ? null : note.id)}
+                <div
+                  key={note.id}
+                  onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined}
                   className="bg-bg-surface border border-border rounded-2xl p-4 cursor-pointer hover:bg-bg-hover transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/bible/${note.book}/${note.chapter}?verse=${note.verse}`);
-                      }}
-                      className="text-[13px] font-medium text-gold hover:underline text-left"
-                    >
+                    <span className="text-[13px] font-medium text-gold">
                       {note.book} {note.chapter}{note.verse ? `:${note.verse}` : ''}
-                    </button>
+                    </span>
                     <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize ${getTypeColor(note.type)}`}>
                       {note.type}
                     </span>
@@ -293,15 +289,13 @@ export default function Notes() {
                       <span className="text-[11px] text-text-muted">
                         {format(new Date(note.created_at), 'MMM d')}
                       </span>
-                      {isExpanded && (
-                        <button 
-                          onClick={(e) => handleDelete(note.id, e)}
-                          className="text-text-muted hover:text-error transition-colors p-1"
-                          aria-label="Delete note"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => handleDelete(note.id, e)}
+                        className="text-text-muted hover:text-error transition-colors p-1"
+                        aria-label="Delete note"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -333,7 +327,7 @@ export default function Notes() {
         )}
       </div>
 
-      <BottomNav />
+      <BottomNav hidden={scrollDirection === 'down'} />
     </div>
   );
 }
