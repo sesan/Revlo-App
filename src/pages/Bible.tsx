@@ -10,6 +10,7 @@ import BottomNav from '../components/BottomNav';
 import { SkeletonVerse } from '../components/Skeleton';
 import JournalSheet from '../components/JournalSheet';
 import BottomSheet from '../components/BottomSheet';
+import NoteThreadSheet from '../components/NoteThreadSheet';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 
@@ -75,6 +76,8 @@ export default function Bible() {
   );
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
+  const [threadNoteId, setThreadNoteId] = useState<string | null>(null);
+  const [showThreadSheet, setShowThreadSheet] = useState(false);
   const [showJournalSheet, setShowJournalSheet] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -1205,10 +1208,20 @@ export default function Bible() {
                 <span className={`${isMobile ? 'w-5 h-5' : 'w-3 h-3'} rounded-full bg-highlight-yellow border border-yellow-500/50`}></span>
                 Highlight
               </button>
-              <button onClick={() => setShowNoteSheet(true)} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
+              <button onClick={() => {
+                const existingNote = selectedWords.length > 0
+                  ? notes.find(n => n.verse === selectedWords[0].verseId && n.type === 'note')
+                  : null;
+                if (existingNote) {
+                  setThreadNoteId(existingNote.id);
+                  setShowThreadSheet(true);
+                } else {
+                  setShowNoteSheet(true);
+                }
+              }} className={`${isMobile ? 'w-full px-4 py-3.5 rounded-lg text-[15px] gap-3' : 'px-3.5 py-2.5 text-[13px] gap-1.5 border-r border-border'} text-text-primary hover:bg-bg-hover flex items-center`}>
                 {selectedWords.length > 0 && notes.some(n => n.verse === selectedWords[0].verseId) ? (
                   <>
-                    <MessageSquare size={isMobile ? 18 : 14} className="text-gold fill-gold" /> 
+                    <MessageSquare size={isMobile ? 18 : 14} className="text-gold fill-gold" />
                     <span className="text-gold font-medium">Check Notes</span>
                   </>
                 ) : (
@@ -1366,6 +1379,13 @@ export default function Bible() {
           </div>
         )}
       </BottomSheet>
+
+      {/* Note Thread Sheet */}
+      <NoteThreadSheet
+        noteId={threadNoteId}
+        isOpen={showThreadSheet}
+        onClose={() => { setShowThreadSheet(false); setThreadNoteId(null); }}
+      />
 
       <BottomNav hidden={scrollDirection === 'down'} />
     </div>

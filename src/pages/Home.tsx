@@ -12,6 +12,7 @@ import MotivationalBanner from '../components/MotivationalBanner';
 import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import BottomSheet from '../components/BottomSheet';
+import NoteThreadSheet from '../components/NoteThreadSheet';
 import { format, getDayOfYear, isSameDay, subDays } from 'date-fns';
 import { parseOnboardingAnswers } from '../lib/utils';
 import { getPersonalizedRecommendations, VerseRecommendation } from '../lib/recommendations';
@@ -64,6 +65,8 @@ export default function Home() {
   const [nameError, setNameError] = useState('');
   const [hasActivityToday, setHasActivityToday] = useState(false);
   const [lastActivityDate, setLastActivityDate] = useState<Date | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [showNoteSheet, setShowNoteSheet] = useState(false);
   const [recommendations, setRecommendations] = useState<VerseRecommendation[]>([]);
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -506,7 +509,7 @@ export default function Home() {
               {recentNotes.map((note) => (
                 <button
                   key={note.id}
-                  onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined}
+                  onClick={() => { setSelectedNoteId(note.id); setShowNoteSheet(true); }}
                   className="min-w-[240px] max-w-[260px] text-left bg-bg-surface border border-border rounded-2xl p-4 hover:border-gold transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -602,6 +605,13 @@ export default function Home() {
           </button>
         </div>
       </BottomSheet>
+
+      {/* Note Thread Sheet */}
+      <NoteThreadSheet
+        noteId={selectedNoteId}
+        isOpen={showNoteSheet}
+        onClose={() => { setShowNoteSheet(false); setSelectedNoteId(null); }}
+      />
     </div>
   );
 }
