@@ -117,3 +117,45 @@ INSERT INTO passages (id, book, chapter, verse, text) VALUES
   ('11111111-1111-1111-1111-11111111112a', 'Psalm', 46, 1, 'God is our refuge and strength, a very present help in trouble.'),
   ('11111111-1111-1111-1111-11111111112b', 'Psalm', 46, 10, 'Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.')
 ON CONFLICT (id) DO NOTHING;
+
+-- ========================================
+-- MIGRATION: Add Translation Support
+-- Date: 2026-03-02
+-- ========================================
+
+-- Add preferred_translation to profiles table
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS preferred_translation TEXT DEFAULT 'web';
+
+-- Add translation and cross-translation display settings to highlights
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS translation TEXT DEFAULT 'web';
+ALTER TABLE highlights ADD COLUMN IF NOT EXISTS show_in_all_translations BOOLEAN DEFAULT false;
+
+-- Add translation and cross-translation display settings to notes
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS translation TEXT DEFAULT 'web';
+ALTER TABLE notes ADD COLUMN IF NOT EXISTS show_in_all_translations BOOLEAN DEFAULT false;
+
+-- Add translation field to journal_entries
+ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS translation TEXT DEFAULT 'web';
+
+-- Create indexes for performance optimization
+CREATE INDEX IF NOT EXISTS idx_highlights_user_passage_translation
+ON highlights(user_id, passage_id, translation);
+
+CREATE INDEX IF NOT EXISTS idx_notes_user_passage_translation
+ON notes(user_id, passage_id, translation);
+
+CREATE INDEX IF NOT EXISTS idx_journal_user_passage_translation
+ON journal_entries(user_id, passage_id, translation);
+
+-- Backfill existing records with default translation
+UPDATE highlights SET translation = 'web' WHERE translation IS NULL;
+UPDATE notes SET translation = 'web' WHERE translation IS NULL;
+UPDATE journal_entries SET translation = 'web' WHERE translation IS NULL;
+
+-- Add comment for documentation
+COMMENT ON COLUMN highlights.translation IS 'Bible translation code (kjv, web, niv, esv, nasb)';
+COMMENT ON COLUMN highlights.show_in_all_translations IS 'If true, highlight appears across all translations';
+COMMENT ON COLUMN notes.translation IS 'Bible translation code where note was created';
+COMMENT ON COLUMN notes.show_in_all_translations IS 'If true, note appears across all translations';
+COMMENT ON COLUMN journal_entries.translation IS 'Bible translation code used for journal entry';
+COMMENT ON COLUMN profiles.preferred_translation IS 'User preferred Bible translation';

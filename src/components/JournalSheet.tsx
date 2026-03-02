@@ -16,9 +16,10 @@ interface JournalSheetProps {
     verses: { verse: number; text: string }[];
   };
   selectedVerses?: { verse: number; text: string }[];
+  translation?: string;
 }
 
-export default function JournalSheet({ isOpen, onClose, currentPassage, selectedVerses }: JournalSheetProps) {
+export default function JournalSheet({ isOpen, onClose, currentPassage, selectedVerses, translation = 'web' }: JournalSheetProps) {
   const { user } = useAuth();
   const [framework, setFramework] = useState<Framework>('HEAR');
   const [fields, setFields] = useState({ f1: '', f2: '', f3: '', f4: '' });
@@ -49,6 +50,7 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
         user_id: user.id,
         passage_id: currentPassage.id,
         framework: framework === 'Free Write' ? 'free' : framework,
+        translation: translation,
         field_1: fields.f1,
         field_2: fields.f2,
         field_3: fields.f3,
@@ -70,6 +72,8 @@ export default function JournalSheet({ isOpen, onClose, currentPassage, selected
         .insert([{
           user_id: user.id,
           passage_id: currentPassage.id,
+          translation: translation,
+          show_in_all_translations: false,
           content: summaryContent.substring(0, 100) + (summaryContent.length > 100 ? '...' : ''),
           type: 'journal',
           framework: framework === 'Free Write' ? 'free' : framework,

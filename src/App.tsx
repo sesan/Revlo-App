@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AnimatePresence } from 'motion/react';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { ThemeProvider } from './lib/ThemeContext';
+import { TranslationProvider } from './lib/TranslationContext';
 import PageTransition from './components/PageTransition';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -56,13 +57,15 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <BrowserRouter>
-          <div className="min-h-screen bg-bg-base text-text-primary font-sans selection:bg-gold/30">
-            <AnimatedRoutes />
-          </div>
-        </BrowserRouter>
-      </ThemeProvider>
+      <TranslationProvider>
+        <ThemeProvider>
+          <BrowserRouter>
+            <div className="min-h-screen bg-bg-base text-text-primary font-sans selection:bg-gold/30">
+              <AnimatedRoutes />
+            </div>
+          </BrowserRouter>
+        </ThemeProvider>
+      </TranslationProvider>
     </AuthProvider>
   );
 }

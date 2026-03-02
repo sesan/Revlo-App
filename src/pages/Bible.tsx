@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { useTheme } from '../lib/ThemeContext';
+import { useTranslation } from '../lib/TranslationContext';
+import { fetchPassage as fetchBiblePassage } from '../lib/bibleApi';
 import BottomNav from '../components/BottomNav';
 import { SkeletonVerse } from '../components/Skeleton';
 import JournalSheet from '../components/JournalSheet';
@@ -52,15 +54,17 @@ export default function Bible() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { fontStyle, toggleFontStyle } = useTheme();
-  
+  const { translation, translationName, setTranslation, availableTranslations } = useTranslation();
+
   const [currentPassage, setCurrentPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [textSize, setTextSize] = useState(17);
   const [showSelector, setShowSelector] = useState(false);
   const [selectorSearch, setSelectorSearch] = useState('');
   const [selectorBook, setSelectorBook] = useState<{name: string, chapters: number} | null>(null);
+  const [showTranslationSelector, setShowTranslationSelector] = useState(false);
 
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0, bottomY: 0 });
@@ -79,7 +83,7 @@ export default function Bible() {
   const scrollDirection = useScrollDirection();
 
   // Lock body scroll when sheets are open on mobile
-  useLockBodyScroll(isMobile && (showColorPicker || showNoteSheet));
+  useLockBodyScroll(isMobile && (showColorPicker || showNoteSheet || showTranslationSelector));
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionStart, setSelectionStart] = useState<{verseId: string, wordIndex: number} | null>(null);
@@ -112,23 +116,12 @@ export default function Bible() {
   }, []);
 
   useEffect(() => {
-    const fetchPassage = async () => {
+    const loadPassage = async () => {
       setLoading(true);
       setError('');
       try {
-        const response = await fetch(`https://bible-api.com/${book}+${chapter}?translation=web`);
-        if (!response.ok) throw new Error('Failed to fetch passage');
-        const data = await response.json();
-        
-        setCurrentPassage({
-          id: `${data.verses[0].book_id}-${data.verses[0].chapter}`,
-          book: data.verses[0].book_name,
-          chapter: data.verses[0].chapter.toString(),
-          verses: data.verses.map((v: any) => ({
-            verse: v.verse,
-            text: v.text.trim()
-          }))
-        });
+        const passage = await fetchBiblePassage(book, chapter, translation);
+        setCurrentPassage(passage);
       } catch (err) {
         console.error('Error fetching Bible passage:', err);
         setError('Failed to load Bible passage. Please try again.');
@@ -137,8 +130,8 @@ export default function Bible() {
       }
     };
 
-    fetchPassage();
-  }, [book, chapter]);
+    loadPassage();
+  }, [book, chapter, translation]);
 
   useEffect(() => {
     if (user && currentPassage) {
@@ -162,6 +155,49 @@ export default function Bible() {
     }
   }, [loading, currentPassage]);
 
+  const isHighlightInCurrentPassage = (highlight: any) => {
+    if (!currentPassage || !highlight) return false;
+
+    const byPassageId = highlight.passage_id === currentPassage.id;
+    const byBookAndChapter =
+      String(highlight.book || '').toLowerCase() === currentPassage.book.toLowerCase() &&
+      String(highlight.chapter || '') === String(currentPassage.chapter);
+
+    return byPassageId || byBookAndChapter;
+  };
+
+  const insertHighlightWithFallback = async (newHighlight: any) => {
+    const payloads = [
+      newHighlight,
+      {
+        user_id: newHighlight.user_id,
+        passage_id: newHighlight.passage_id,
+        translation: newHighlight.translation,
+        show_in_all_translations: newHighlight.show_in_all_translations,
+        word_start: newHighlight.word_start,
+        word_end: newHighlight.word_end,
+        color: newHighlight.color,
+      },
+      {
+        user_id: newHighlight.user_id,
+        translation: newHighlight.translation,
+        show_in_all_translations: newHighlight.show_in_all_translations,
+        word_start: newHighlight.word_start,
+        word_end: newHighlight.word_end,
+        color: newHighlight.color,
+      },
+    ];
+
+    let lastError: any = null;
+    for (const payload of payloads) {
+      const { data, error } = await supabase.from('highlights').insert([payload]).select();
+      if (!error) return data;
+      lastError = error;
+    }
+
+    throw lastError;
+  };
+
   const fetchUserData = async () => {
     try {
       const [highlightsRes, notesRes] = await Promise.all([
@@ -169,18 +205,19 @@ export default function Bible() {
           .from('highlights')
           .select('*')
           .eq('user_id', user?.id)
-          .eq('passage_id', currentPassage?.id),
+          .or(`translation.eq.${translation},show_in_all_translations.eq.true`),
         supabase
           .from('notes')
           .select('*')
           .eq('user_id', user?.id)
           .eq('passage_id', currentPassage?.id)
+          .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
       ]);
-        
+
       if (highlightsRes.error) throw highlightsRes.error;
       if (notesRes.error) throw notesRes.error;
 
-      setHighlights(highlightsRes.data || []);
+      setHighlights((highlightsRes.data || []).filter(isHighlightInCurrentPassage));
       setNotes(notesRes.data || []);
     } catch (err) {
       console.error('Error fetching user data:', err);
@@ -283,10 +320,16 @@ export default function Bible() {
   };
 
   const handleWordPointerDown = (e: React.TouchEvent | React.MouseEvent, verseId: string, wordIndex: number) => {
-    if (!currentPassage || !isMobile) return;
+    if (!currentPassage) return;
     
     const highlight = getHighlightForWord(verseId, wordIndex);
     if (highlight) {
+      e.stopPropagation();
+      // Prevent synthetic mouse events after touch so we don't fall back to long-press behavior.
+      if ('touches' in e && e.cancelable) {
+        e.preventDefault();
+      }
+
       // If tapping a highlighted word on mobile, select the whole highlight immediately
       let newSelection: {verseId: string, wordIndex: number}[] = [];
       let currentIndex = 0;
@@ -441,8 +484,8 @@ export default function Bible() {
       const maxFlat = Math.max(startFlat, endFlat);
 
       // Check if we are updating an existing highlight
-      const existingHighlight = highlights.find(h => 
-        h.passage_id === currentPassage.id && 
+      const existingHighlight = highlights.find(h =>
+        isHighlightInCurrentPassage(h) &&
         ((minFlat >= h.word_start && minFlat <= h.word_end) || 
          (maxFlat >= h.word_start && maxFlat <= h.word_end) ||
          (minFlat <= h.word_start && maxFlat >= h.word_end))
@@ -450,14 +493,16 @@ export default function Bible() {
 
       if (existingHighlight) {
         // Update existing highlight
-        await supabase
+        const { error } = await supabase
           .from('highlights')
           .update({ color })
           .eq('id', existingHighlight.id);
-          
-        setHighlights(highlights.map(h => 
-          h.id === existingHighlight.id ? { ...h, color } : h
-        ));
+
+        if (error) throw error;
+
+        setHighlights(prev =>
+          prev.map(h => (h.id === existingHighlight.id ? { ...h, color } : h))
+        );
       } else {
         // Create new highlight
         const newHighlight = {
@@ -466,25 +511,26 @@ export default function Bible() {
           book: currentPassage.book,
           chapter: currentPassage.chapter,
           verse: selectedWords[0].verseId,
+          translation: translation,
+          show_in_all_translations: false,
           word_start: minFlat,
           word_end: maxFlat,
           color: color
         };
 
-        const { data, error } = await supabase.from('highlights').insert([newHighlight]).select();
-        
-        if (error) throw error;
+        const data = await insertHighlightWithFallback(newHighlight);
         if (data && data.length > 0) {
-          setHighlights([...highlights, data[0]]);
+          setHighlights(prev => [...prev, data[0]]);
         } else {
           // Fallback if select() doesn't return data but insert succeeded
-          setHighlights([...highlights, newHighlight]);
+          setHighlights(prev => [...prev, { ...newHighlight, id: crypto.randomUUID() }]);
         }
       }
       
       setSelectedWords([]);
     } catch (err) {
       console.error('Error saving highlight:', err);
+      alert('Could not save highlight. Please try again.');
     }
   };
 
@@ -494,8 +540,8 @@ export default function Bible() {
     try {
       const startFlat = getFlatIndex(selectedWords[0].verseId, selectedWords[0].wordIndex);
       
-      const existingHighlight = highlights.find(h => 
-        h.passage_id === currentPassage.id && 
+      const existingHighlight = highlights.find(h =>
+        isHighlightInCurrentPassage(h) &&
         startFlat >= h.word_start && 
         startFlat <= h.word_end
       );
@@ -560,7 +606,7 @@ export default function Bible() {
 
   const handleSaveNote = async () => {
     if (!user || !noteText.trim() || !currentPassage) return;
-    
+
     try {
       await supabase.from('notes').insert([{
         user_id: user.id,
@@ -568,11 +614,13 @@ export default function Bible() {
         book: currentPassage.book,
         chapter: currentPassage.chapter,
         verse: selectedWords.length > 0 ? selectedWords[0].verseId : null,
+        translation: translation,
+        show_in_all_translations: false,
         content: noteText,
         type: 'note',
         tags: noteTags
       }]);
-      
+
       setShowNoteSheet(false);
       setNoteText('');
       setNoteTags([]);
@@ -591,6 +639,8 @@ export default function Bible() {
         passage_id: currentPassage.id,
         book: currentPassage.book,
         chapter: currentPassage.chapter,
+        translation: translation,
+        show_in_all_translations: false,
         content: `${currentPassage.book} ${currentPassage.chapter}`,
         type: 'bookmark'
       }]);
@@ -615,8 +665,8 @@ export default function Bible() {
   const getHighlightForWord = (verseId: string, wordIndex: number) => {
     if (!currentPassage) return null;
     const flatIndex = getFlatIndex(verseId, wordIndex);
-    return highlights.find(h => 
-      h.passage_id === currentPassage.id && 
+    return highlights.find(h =>
+      isHighlightInCurrentPassage(h) &&
       flatIndex >= h.word_start && 
       flatIndex <= h.word_end
     ) || null;
@@ -667,21 +717,32 @@ export default function Bible() {
         <button onClick={() => navigate('/home')} className="p-2 -ml-2 text-text-primary">
           <ArrowLeft size={24} />
         </button>
-        
-        <button 
-          onClick={() => {
-            setSelectorSearch('');
-            setSelectorBook(null);
-            setShowSelector(true);
-          }}
-          className="flex items-center gap-1.5 bg-bg-surface px-4 py-1.5 rounded-full border border-border hover:border-text-muted transition-colors"
-        >
-          <span className="font-bold tracking-tighter text-[16px] text-text-primary">
-            {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
-          </span>
-          <ChevronDown size={16} className="text-text-muted" />
-        </button>
-        
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectorSearch('');
+              setSelectorBook(null);
+              setShowSelector(true);
+            }}
+            className="flex items-center gap-1.5 bg-bg-surface px-4 py-1.5 rounded-full border border-border hover:border-text-muted transition-colors"
+          >
+            <span className="font-bold tracking-tighter text-[16px] text-text-primary">
+              {loading ? 'Loading...' : currentPassage ? `${currentPassage.book} ${currentPassage.chapter}` : 'Bible'}
+            </span>
+            <ChevronDown size={16} className="text-text-muted" />
+          </button>
+
+          <button
+            onClick={() => setShowTranslationSelector(true)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-bg-surface border border-border hover:border-text-muted transition-colors"
+            aria-label="Select Bible translation"
+          >
+            <BookOpen size={14} />
+            <span className="text-[13px] font-semibold">{translation.toUpperCase()}</span>
+          </button>
+        </div>
+
         <div className="flex items-center gap-1 -mr-2">
           <button
             onClick={toggleFontStyle}
@@ -930,6 +991,66 @@ export default function Bible() {
         </div>
       )}
 
+      {/* Translation Selector Modal */}
+      {showTranslationSelector && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
+          onClick={() => setShowTranslationSelector(false)}
+        >
+          <div
+            className="fixed inset-x-0 bottom-0 bg-bg-elevated rounded-t-2xl max-h-[70vh] overflow-hidden animate-in slide-in-from-bottom-full duration-300 pb-safe"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-bg-elevated border-b border-border p-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold tracking-tight">Bible Translation</h2>
+                <button
+                  onClick={() => setShowTranslationSelector(false)}
+                  className="p-2 -mr-2 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <p className="text-sm text-text-muted mt-1">{translationName}</p>
+            </div>
+
+            {/* Translation List */}
+            <div className="overflow-y-auto pb-safe">
+              {availableTranslations.map(t => (
+                <button
+                  key={t.code}
+                  onClick={() => {
+                    setTranslation(t.code);
+                    setShowTranslationSelector(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-4 py-4 hover:bg-bg-hover transition-colors ${
+                    translation === t.code ? 'bg-gold/10' : ''
+                  }`}
+                >
+                  <div className="text-left">
+                    <div className="font-medium text-text-primary">{t.name}</div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      {t.code.toUpperCase()} • {t.category === 'public' ? 'Public Domain' : t.category === 'modern' ? 'Modern' : 'Literal'}
+                    </div>
+                  </div>
+                  {translation === t.code && (
+                    <Check size={20} className="text-gold shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Copyright Notice */}
+            <div className="sticky bottom-0 bg-bg-elevated border-t border-border p-3">
+              <p className="text-xs text-text-muted text-center">
+                {availableTranslations.find(t => t.code === translation)?.copyright}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && !isSelecting && !draggingPin && (
         <>
@@ -1054,11 +1175,12 @@ export default function Bible() {
 
       {/* Journal Sheet Modal */}
       {currentPassage && (
-        <JournalSheet 
-          isOpen={showJournalSheet} 
-          onClose={() => setShowJournalSheet(false)} 
+        <JournalSheet
+          isOpen={showJournalSheet}
+          onClose={() => setShowJournalSheet(false)}
           currentPassage={currentPassage}
           selectedVerses={getSelectedVerses()}
+          translation={translation}
         />
       )}
 

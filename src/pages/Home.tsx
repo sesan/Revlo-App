@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, PenTool, Search, LogOut, Flame, Calendar, ChevronRight } from 'lucide-react';
+import { AnimatePresence } from 'motion/react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
+import SetupChecklist from '../components/SetupChecklist';
+import RecommendationsCard from '../components/RecommendationsCard';
+import StatisticsDashboard from '../components/StatisticsDashboard';
+import MotivationalBanner from '../components/MotivationalBanner';
 import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { format, differenceInDays, getDayOfYear, isSameDay, subDays } from 'date-fns';
+import { parseOnboardingAnswers } from '../lib/utils';
+import { getPersonalizedRecommendations, VerseRecommendation } from '../lib/recommendations';
+import { getMotivationalMessage, getDynamicSubtitle } from '../lib/motivationalMessages';
 
 const VERSES_OF_THE_DAY = [
   { ref: 'John 3:16', text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', book: 'John', chapter: '3', verse: 16 },
@@ -51,8 +59,53 @@ export default function Home() {
   const [streak, setStreak] = useState(0);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [hasActivityToday, setHasActivityToday] = useState(false);
+  const [lastActivityDate, setLastActivityDate] = useState<Date | null>(null);
+  const [recommendations, setRecommendations] = useState<VerseRecommendation[]>([]);
+  const [recommendationsLoading, setRecommendationsLoading] = useState(true);
 
   const todayVerse = VERSES_OF_THE_DAY[getDayOfYear(new Date()) % VERSES_OF_THE_DAY.length];
+
+  // Parse onboarding answers
+  const { purpose, experience, interests } = useMemo(() => {
+    return parseOnboardingAnswers(profile?.onboarding_answers);
+  }, [profile?.onboarding_answers]);
+
+  // Generate personalized recommendations
+  useEffect(() => {
+    if (profile && interests.length > 0) {
+      setRecommendationsLoading(true);
+      const recs = getPersonalizedRecommendations({
+        purpose,
+        experience,
+        interests,
+        currentPlan: profile.current_plan,
+      });
+      setRecommendations(recs);
+      setRecommendationsLoading(false);
+    }
+  }, [profile, purpose, experience, interests]);
+
+  // Get motivational message
+  const motivationalMessage = useMemo(() => {
+    if (!profile) return null;
+
+    return getMotivationalMessage({
+      purpose,
+      streak,
+      hasActivityToday,
+      lastActivityDate,
+    });
+  }, [purpose, streak, hasActivityToday, lastActivityDate]);
+
+  // Get dynamic subtitle for greeting
+  const greetingSubtitle = useMemo(() => {
+    return getDynamicSubtitle({
+      purpose,
+      streak,
+      hasActivityToday,
+    });
+  }, [purpose, streak, hasActivityToday]);
 
   useEffect(() => {
     if (user) {
@@ -61,11 +114,7 @@ export default function Home() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (profile && !profile.full_name) {
-      setShowNamePrompt(true);
-    }
-  }, [profile]);
+  const triggerNamePrompt = () => setShowNamePrompt(true);
 
   const handleSaveName = async () => {
     if (!nameInput.trim()) return;
@@ -97,16 +146,25 @@ export default function Home() {
 
       if (!notesData || notesData.length === 0) {
         setStreak(0);
+        setHasActivityToday(false);
+        setLastActivityDate(null);
         return;
       }
 
       const dates = notesData.map(n => new Date(n.created_at));
       let currentStreak = 0;
       let checkDate = new Date();
-      
+
+      // Set last activity date
+      if (dates.length > 0) {
+        setLastActivityDate(dates[0]);
+      }
+
       // Check if there's activity today
-      const hasActivityToday = dates.some(d => isSameDay(d, checkDate));
-      if (hasActivityToday) {
+      const activityToday = dates.some(d => isSameDay(d, checkDate));
+      setHasActivityToday(activityToday);
+
+      if (activityToday) {
         currentStreak++;
         checkDate = subDays(checkDate, 1);
       } else {
@@ -250,6 +308,16 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Setup Checklist */}
+        <AnimatePresence>
+          <SetupChecklist
+            profile={profile}
+            user={user}
+            onNavigate={navigate}
+            onNamePrompt={triggerNamePrompt}
+          />
+        </AnimatePresence>
 
         {/* Verse of the Day */}
         <div
