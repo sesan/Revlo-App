@@ -59,6 +59,8 @@ export default function Home() {
   const [streak, setStreak] = useState(0);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
   const [hasActivityToday, setHasActivityToday] = useState(false);
   const [lastActivityDate, setLastActivityDate] = useState<Date | null>(null);
   const [recommendations, setRecommendations] = useState<VerseRecommendation[]>([]);
@@ -130,20 +132,39 @@ export default function Home() {
   const triggerNamePrompt = () => setShowNamePrompt(true);
 
   const handleSaveName = async () => {
-    if (!nameInput.trim()) return;
-    
+    if (!nameInput.trim() || nameSaving) return;
+
+    setNameSaving(true);
+    setNameError('');
+
     try {
-      const { error } = await supabase
+      console.log('Saving name:', nameInput.trim(), 'for user:', user?.id);
+
+      const { data, error } = await supabase
         .from('profiles')
         .update({ full_name: nameInput.trim() })
-        .eq('id', user?.id);
+        .eq('id', user?.id)
+        .select();
+
+      console.log('Update result:', { data, error });
 
       if (error) throw error;
-      
+
       await refreshProfile();
       setShowNamePrompt(false);
-    } catch (err) {
+      setNameInput('');
+      console.log('Name saved successfully');
+    } catch (err: any) {
       console.error('Error saving name:', err);
+      setNameError(err.message || 'Failed to save name. Please try again.');
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
+  const handleNameKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveName();
     }
   };
 
@@ -490,22 +511,28 @@ export default function Home() {
           <div className="bg-bg-elevated border border-border rounded-2xl p-6 w-full max-w-sm shadow-xl">
             <h3 className="text-[20px] font-bold tracking-tighter text-text-primary mb-2">Welcome to Verse</h3>
             <p className="text-[14px] text-text-secondary mb-4">What should we call you?</p>
-            
+
             <input
               type="text"
               placeholder="Your First Name"
               value={nameInput}
               onChange={(e) => setNameInput(e.target.value)}
+              onKeyPress={handleNameKeyPress}
               className="w-full bg-bg-input border border-border rounded-xl p-3 text-[15px] text-text-primary focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold mb-4"
               autoFocus
+              disabled={nameSaving}
             />
-            
+
+            {nameError && (
+              <p className="text-[13px] text-error mb-3">{nameError}</p>
+            )}
+
             <button
               onClick={handleSaveName}
-              disabled={!nameInput.trim()}
+              disabled={!nameInput.trim() || nameSaving}
               className="btn-primary w-full"
             >
-              Continue
+              {nameSaving ? 'Saving...' : 'Continue'}
             </button>
           </div>
         </div>
