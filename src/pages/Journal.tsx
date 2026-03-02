@@ -6,8 +6,11 @@ import { useAuth } from '../lib/AuthContext';
 import { KJV_PASSAGES } from '../lib/data';
 import BottomNav from '../components/BottomNav';
 import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useSpeechToText } from '../hooks/useSpeechToText';
+import { applyTranscriptToJournalFields, appendTranscriptToField } from '../lib/journalVoice';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
+type RecordingTarget = 'all' | 'f1' | 'f2' | 'f3' | 'f4';
 
 export default function Journal() {
   const navigate = useNavigate();
@@ -17,9 +20,11 @@ export default function Journal() {
 
   const [framework, setFramework] = useState<Framework>('HEAR');
   const [fields, setFields] = useState({ f1: '', f2: '', f3: '', f4: '' });
-  const [isRecording, setIsRecording] = useState<string | null>(null);
+  const [recordingTarget, setRecordingTarget] = useState<RecordingTarget | null>(null);
   const [showToast, setShowToast] = useState(false);
+  const [showVoiceToast, setShowVoiceToast] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { isListening, isSupported: isVoiceSupported, error: voiceError, clearError, startListening, stopListening } = useSpeechToText();
 
   // Default context for prototype
   const currentPassage = KJV_PASSAGES[0];
@@ -74,23 +79,83 @@ export default function Journal() {
     }
   };
 
-  const toggleRecording = (field: string) => {
-    if (isRecording === field) {
-      setIsRecording(null);
-      // Mock transcription
-      setFields(prev => ({
+  const showVoiceSuccessToast = () => {
+    setShowVoiceToast(true);
+    setTimeout(() => setShowVoiceToast(false), 1600);
+  };
+
+  const applyTranscriptForTarget = (target: RecordingTarget, transcript: string) => {
+    setFields((prev) => {
+      if (target === 'all') {
+        return applyTranscriptToJournalFields(framework, transcript, prev);
+      }
+
+      return {
         ...prev,
-        [field]: prev[field as keyof typeof prev] + " [Transcribed text from voice]"
-      }));
-    } else {
-      setIsRecording(field);
+        [target]: appendTranscriptToField(prev[target], transcript)
+      };
+    });
+    showVoiceSuccessToast();
+  };
+
+  const toggleRecording = (target: RecordingTarget) => {
+    if (!isVoiceSupported) {
+      alert('Voice transcription is not supported on this browser. Try Chrome or Safari on a newer device.');
+      return;
+    }
+
+    if (isListening && recordingTarget === target) {
+      stopListening();
+      return;
+    }
+
+    clearError();
+    setRecordingTarget(target);
+
+    const started = startListening({
+      onFinalTranscript: (transcript) => {
+        applyTranscriptForTarget(target, transcript);
+      }
+    });
+
+    if (!started) {
+      setRecordingTarget(null);
     }
   };
+
+  useEffect(() => {
+    if (!isListening) {
+      setRecordingTarget(null);
+    }
+  }, [isListening]);
+
+  useEffect(() => {
+    if (isListening) {
+      stopListening();
+      setRecordingTarget(null);
+    }
+  }, [framework, isListening, stopListening]);
 
   const renderSections = () => {
     if (framework === 'Free Write') {
       return (
         <div className="mt-6">
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => toggleRecording('all')}
+              className={`px-3 py-2 rounded-full text-[12px] font-medium border transition-colors flex items-center gap-2 ${
+                isListening && recordingTarget === 'all'
+                  ? 'text-error bg-error/10 border-error'
+                  : 'text-gold border-gold-border hover:bg-gold/10'
+              }`}
+              aria-label={isListening && recordingTarget === 'all' ? 'Stop voice recording for reflection' : 'Record voice for reflection'}
+              aria-pressed={isListening && recordingTarget === 'all'}
+              disabled={!isVoiceSupported}
+            >
+              <Mic size={14} />
+              {isListening && recordingTarget === 'all' ? 'Stop recording' : 'Record reflection'}
+            </button>
+          </div>
           <textarea
             value={fields.f1}
             onChange={(e) => setFields({ ...fields, f1: e.target.value })}
@@ -128,11 +193,13 @@ export default function Journal() {
               <button
                 onClick={() => toggleRecording(section.id)}
                 className={`p-2 rounded-full transition-colors ${
-                  isRecording === section.id 
+                  isListening && recordingTarget === section.id
                     ? 'text-error bg-error/10 animate-pulse' 
                     : 'text-text-muted hover:text-text-primary hover:bg-bg-hover'
                 }`}
-                aria-label={`Record voice for ${section.letter}`}
+                aria-label={isListening && recordingTarget === section.id ? `Stop recording for ${section.letter}` : `Record voice for ${section.letter}`}
+                aria-pressed={isListening && recordingTarget === section.id}
+                disabled={!isVoiceSupported}
               >
                 <Mic size={20} />
               </button>
@@ -198,6 +265,37 @@ export default function Journal() {
           ))}
         </div>
 
+        <div className="mb-2 flex justify-end">
+          <button
+            onClick={() => toggleRecording('all')}
+            className={`px-3 py-2 rounded-full text-[12px] font-medium border transition-colors flex items-center gap-2 ${
+              isListening && recordingTarget === 'all'
+                ? 'text-error bg-error/10 border-error'
+                : 'text-gold border-gold-border hover:bg-gold/10'
+            }`}
+            aria-label={isListening && recordingTarget === 'all' ? 'Stop recording full journal entry' : 'Record full journal entry with voice'}
+            aria-pressed={isListening && recordingTarget === 'all'}
+            disabled={!isVoiceSupported}
+          >
+            <Mic size={14} />
+            {isListening && recordingTarget === 'all' ? 'Stop full entry recording' : 'Record full entry'}
+          </button>
+        </div>
+
+        {isListening && (
+          <p role="status" aria-live="polite" className="text-[12px] text-text-secondary mb-2">
+            Listening... tap the active microphone button again to finish.
+          </p>
+        )}
+        {voiceError && (
+          <p role="alert" className="text-[12px] text-error mb-2">{voiceError}</p>
+        )}
+        {!isVoiceSupported && (
+          <p className="text-[12px] text-text-secondary mb-2">
+            Voice transcription is unavailable in this browser.
+          </p>
+        )}
+
         {/* Dynamic Sections */}
         {renderSections()}
       </div>
@@ -208,6 +306,14 @@ export default function Journal() {
           <div className="bg-bg-elevated border border-gold rounded-full px-4 py-2.5 shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-gold" />
             <span className="text-[14px] text-text-primary font-medium">Journal entry saved.</span>
+          </div>
+        </div>
+      )}
+
+      {showVoiceToast && (
+        <div role="status" aria-live="polite" className="fixed bottom-[140px] left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-bg-elevated border border-border rounded-full px-4 py-2.5 shadow-lg">
+            <span className="text-[13px] text-text-primary font-medium">Voice transcription added to journal.</span>
           </div>
         </div>
       )}

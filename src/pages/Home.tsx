@@ -427,17 +427,6 @@ export default function Home() {
           </button>
         </section>
 
-        {motivationalMessage && <MotivationalBanner message={motivationalMessage} />}
-
-        <AnimatePresence>
-          <SetupChecklist
-            profile={profile}
-            user={user}
-            onNavigate={navigate}
-            onNamePrompt={triggerNamePrompt}
-          />
-        </AnimatePresence>
-
         {/* Verse of the Day */}
         <button
           onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
@@ -453,6 +442,15 @@ export default function Home() {
             "{todayVerse.text}"
           </p>
         </button>
+
+        <AnimatePresence>
+          <SetupChecklist
+            profile={profile}
+            user={user}
+            onNavigate={navigate}
+            onNamePrompt={triggerNamePrompt}
+          />
+        </AnimatePresence>
 
         <section>
           <div className="flex items-center justify-between mb-3">
@@ -486,35 +484,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Recommended Scripture</h3>
-          </div>
-          {recommendationsLoading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => <SkeletonCard key={i} />)}
-            </div>
-          ) : recommendations.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
-              {recommendations.map((rec) => (
-                <button
-                  key={rec.ref}
-                  onClick={() => navigate(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`)}
-                  className="min-w-[240px] max-w-[260px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
-                >
-                  <p className="text-[12px] font-semibold text-gold mb-2">{rec.ref}</p>
-                  <p className="text-[13px] italic text-text-secondary line-clamp-4 mb-3">"{rec.text}"</p>
-                  <p className="text-[12px] text-text-muted">{rec.reason}</p>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-bg-surface border border-border rounded-2xl p-4">
-              <p className="text-[13px] text-text-secondary">Complete onboarding to unlock personalized verse rails.</p>
-            </div>
-          )}
-        </section>
-
+        {motivationalMessage && <MotivationalBanner message={motivationalMessage} />}
 
         <section>
           <div className="flex justify-between items-center mb-3">
@@ -558,6 +528,35 @@ export default function Home() {
             <div className="bg-bg-surface border border-border rounded-xl p-6 text-center">
               <p className="text-[14px] text-text-secondary mb-2">No notes yet.</p>
               <p className="text-[13px] text-text-muted">Start reading to add highlights and notes.</p>
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Recommended Scripture</h3>
+          </div>
+          {recommendationsLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : recommendations.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+              {recommendations.map((rec) => (
+                <button
+                  key={rec.ref}
+                  onClick={() => navigate(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`)}
+                  className="min-w-[240px] max-w-[260px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
+                >
+                  <p className="text-[12px] font-semibold text-gold mb-2">{rec.ref}</p>
+                  <p className="text-[13px] italic text-text-secondary line-clamp-4 mb-3">"{rec.text}"</p>
+                  <p className="text-[12px] text-text-muted">{rec.reason}</p>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-bg-surface border border-border rounded-2xl p-4">
+              <p className="text-[13px] text-text-secondary">Complete onboarding to unlock personalized verse rails.</p>
             </div>
           )}
         </section>
