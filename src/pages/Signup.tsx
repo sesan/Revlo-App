@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -75,7 +76,12 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-[420px] card">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="w-full max-w-[420px] card"
+      >
         <div className="text-center mb-8">
           <h1 className="text-[32px] font-bold tracking-tighter text-text-primary mb-2">Verse</h1>
           <p className="text-[14px] text-text-secondary">The Bible app that never forgets.</p>
@@ -152,7 +158,7 @@ export default function Signup() {
             </Link>
           </p>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

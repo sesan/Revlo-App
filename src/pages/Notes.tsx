@@ -4,6 +4,7 @@ import { Search, BookOpen, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import BottomNav from '../components/BottomNav';
+import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
 import { format } from 'date-fns';
 
@@ -235,7 +236,9 @@ export default function Notes() {
 
         {/* Notes Feed */}
         {loading ? (
-          <div className="text-center py-10 text-text-muted">Loading...</div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)}
+          </div>
         ) : filteredNotes.length > 0 ? (
           <div className="space-y-3">
             {filteredNotes.map((note) => {

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'motion/react';
 import { CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
+
+const stagger = (i: number) => ({ delay: 0.1 + i * 0.12 });
 
 export default function OnboardingResult() {
   const location = useLocation();
@@ -11,7 +14,7 @@ export default function OnboardingResult() {
 
   useEffect(() => {
     const topic = location.state?.topic || "Who is Jesus?";
-    
+
     if (topic === "How do I pray?") {
       setPlan({
         name: "Learning to Talk to God",
@@ -59,17 +62,48 @@ export default function OnboardingResult() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center max-w-md mx-auto">
-      <div className="mb-8 animate-in fade-in zoom-in duration-500">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, ease: 'easeOut', ...stagger(0) }}
+        className="mb-8"
+      >
         <CheckCircle2 size={48} className="text-gold mx-auto" />
-      </div>
+      </motion.div>
 
-      <h1 className="text-[32px] font-bold tracking-tighter text-text-primary mb-2">Your plan is ready.</h1>
-      <h2 className="text-[22px] font-bold tracking-tighter text-gold mb-4">{plan.name}</h2>
-      <p className="text-[15px] text-text-secondary mb-10 max-w-[300px]">
+      <motion.h1
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', ...stagger(1) }}
+        className="text-[32px] font-bold tracking-tighter text-text-primary mb-2"
+      >
+        Your plan is ready.
+      </motion.h1>
+
+      <motion.h2
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', ...stagger(2) }}
+        className="text-[22px] font-bold tracking-tighter text-gold mb-4"
+      >
+        {plan.name}
+      </motion.h2>
+
+      <motion.p
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', ...stagger(3) }}
+        className="text-[15px] text-text-secondary mb-10 max-w-[300px]"
+      >
         {plan.description}
-      </p>
+      </motion.p>
 
-      <div className="w-full bg-bg-surface border border-border rounded-xl p-5 mb-10 text-left border-l-[3px] border-l-gold relative overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', ...stagger(4) }}
+        className="w-full bg-bg-surface border border-border rounded-xl p-5 mb-10 text-left border-l-[3px] border-l-gold relative overflow-hidden"
+      >
         <div className="absolute top-0 left-0 w-1 h-full bg-gold"></div>
         <p className="text-[13px] text-text-muted uppercase tracking-wider mb-1">
           Day 1 · Start here
@@ -77,21 +111,27 @@ export default function OnboardingResult() {
         <p className="text-[16px] text-text-primary font-medium">
           {plan.day1}
         </p>
-      </div>
+      </motion.div>
 
-      <button
+      <motion.button
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: 'easeOut', ...stagger(5) }}
         onClick={handleStartReading}
         className="btn-primary w-full mb-4"
       >
         Start Reading Day 1 →
-      </button>
+      </motion.button>
 
-      <button
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, ...stagger(6) }}
         onClick={() => navigate('/home')}
         className="text-[15px] text-gold hover:underline"
       >
         Go to my dashboard
-      </button>
+      </motion.button>
     </div>
   );
 }

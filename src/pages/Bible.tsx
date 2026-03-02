@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, Loader2, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { useTheme } from '../lib/ThemeContext';
 import BottomNav from '../components/BottomNav';
+import { SkeletonVerse } from '../components/Skeleton';
 import JournalSheet from '../components/JournalSheet';
 import { useLockBodyScroll } from '../hooks/useLockBodyScroll';
 import { useScrollDirection } from '../hooks/useScrollDirection';
@@ -49,6 +51,7 @@ export default function Bible() {
   const { book = 'John', chapter = '3' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { fontStyle, toggleFontStyle } = useTheme();
   
   const [currentPassage, setCurrentPassage] = useState<Passage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -679,12 +682,20 @@ export default function Bible() {
           <ChevronDown size={16} className="text-text-muted" />
         </button>
         
-        <button 
-          onClick={() => setTextSize(s => s >= 24 ? 15 : s + 2)}
-          className="p-2 -mr-2 text-text-primary"
-        >
-          <Type size={20} />
-        </button>
+        <div className="flex items-center gap-1 -mr-2">
+          <button
+            onClick={toggleFontStyle}
+            className={`px-2.5 py-1 rounded-full text-[13px] font-medium border transition-colors ${fontStyle === 'serif' ? 'bg-gold text-text-inverse border-gold' : 'bg-transparent text-text-primary border-border hover:bg-bg-hover'}`}
+          >
+            {fontStyle === 'serif' ? 'Serif' : 'Sans'}
+          </button>
+          <button
+            onClick={() => setTextSize(s => s >= 24 ? 15 : s + 2)}
+            className="p-2 text-text-primary"
+          >
+            <Type size={20} />
+          </button>
+        </div>
       </div>
 
       {/* Floating Navigation */}
@@ -725,9 +736,8 @@ export default function Bible() {
         }}
       >
         {loading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-text-muted">
-            <Loader2 size={32} className="animate-spin mb-4 text-text-primary" />
-            <p className="text-[14px]">Loading World English Bible (WEB)...</p>
+          <div className="space-y-6 pt-12">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <SkeletonVerse key={i} />)}
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -768,8 +778,8 @@ export default function Bible() {
                         </div>
                       )}
                     </div>
-                    <div 
-                      className="text-text-primary leading-[1.8] flex-1"
+                    <div
+                      className={`text-text-primary leading-[1.8] flex-1 ${fontStyle === 'serif' ? 'font-serif' : 'font-sans'}`}
                       style={{ fontSize: `${textSize}px` }}
                     >
                     {v.text.split(' ').map((word, i, arr) => {

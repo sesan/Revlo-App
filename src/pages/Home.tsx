@@ -4,18 +4,55 @@ import { BookOpen, PenTool, Search, LogOut, Flame, Calendar, ChevronRight } from
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
+import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
-import { format, differenceInDays, isSameDay, subDays } from 'date-fns';
+import { format, differenceInDays, getDayOfYear, isSameDay, subDays } from 'date-fns';
+
+const VERSES_OF_THE_DAY = [
+  { ref: 'John 3:16', text: 'For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.', book: 'John', chapter: '3', verse: 16 },
+  { ref: 'Psalm 23:1', text: 'The Lord is my shepherd; I shall not want.', book: 'Psalms', chapter: '23', verse: 1 },
+  { ref: 'Philippians 4:13', text: 'I can do all things through Christ which strengtheneth me.', book: 'Philippians', chapter: '4', verse: 13 },
+  { ref: 'Jeremiah 29:11', text: 'For I know the thoughts that I think toward you, saith the Lord, thoughts of peace, and not of evil, to give you an expected end.', book: 'Jeremiah', chapter: '29', verse: 11 },
+  { ref: 'Proverbs 3:5', text: 'Trust in the Lord with all thine heart; and lean not unto thine own understanding.', book: 'Proverbs', chapter: '3', verse: 5 },
+  { ref: 'Romans 8:28', text: 'And we know that all things work together for good to them that love God, to them who are the called according to his purpose.', book: 'Romans', chapter: '8', verse: 28 },
+  { ref: 'Isaiah 41:10', text: 'Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee.', book: 'Isaiah', chapter: '41', verse: 10 },
+  { ref: 'Psalm 46:10', text: 'Be still, and know that I am God: I will be exalted among the heathen, I will be exalted in the earth.', book: 'Psalms', chapter: '46', verse: 10 },
+  { ref: 'Matthew 11:28', text: 'Come unto me, all ye that labour and are heavy laden, and I will give you rest.', book: 'Matthew', chapter: '11', verse: 28 },
+  { ref: 'Psalm 119:105', text: 'Thy word is a lamp unto my feet, and a light unto my path.', book: 'Psalms', chapter: '119', verse: 105 },
+  { ref: 'Romans 12:2', text: 'And be not conformed to this world: but be ye transformed by the renewing of your mind, that ye may prove what is that good, and acceptable, and perfect, will of God.', book: 'Romans', chapter: '12', verse: 2 },
+  { ref: 'Psalm 37:4', text: 'Delight thyself also in the Lord: and he shall give thee the desires of thine heart.', book: 'Psalms', chapter: '37', verse: 4 },
+  { ref: 'Ephesians 2:8', text: 'For by grace are ye saved through faith; and that not of yourselves: it is the gift of God.', book: 'Ephesians', chapter: '2', verse: 8 },
+  { ref: '2 Timothy 1:7', text: 'For God hath not given us the spirit of fear; but of power, and of love, and of a sound mind.', book: '2 Timothy', chapter: '1', verse: 7 },
+  { ref: 'Hebrews 11:1', text: 'Now faith is the substance of things hoped for, the evidence of things not seen.', book: 'Hebrews', chapter: '11', verse: 1 },
+  { ref: 'Joshua 1:9', text: 'Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the Lord thy God is with thee whithersoever thou goest.', book: 'Joshua', chapter: '1', verse: 9 },
+  { ref: 'Psalm 27:1', text: 'The Lord is my light and my salvation; whom shall I fear? The Lord is the strength of my life; of whom shall I be afraid?', book: 'Psalms', chapter: '27', verse: 1 },
+  { ref: '1 Corinthians 13:4', text: 'Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up.', book: '1 Corinthians', chapter: '13', verse: 4 },
+  { ref: 'Galatians 5:22', text: 'But the fruit of the Spirit is love, joy, peace, longsuffering, gentleness, goodness, faith.', book: 'Galatians', chapter: '5', verse: 22 },
+  { ref: 'Colossians 3:23', text: 'And whatsoever ye do, do it heartily, as to the Lord, and not unto men.', book: 'Colossians', chapter: '3', verse: 23 },
+  { ref: 'Psalm 139:14', text: 'I will praise thee; for I am fearfully and wonderfully made: marvellous are thy works; and that my soul knoweth right well.', book: 'Psalms', chapter: '139', verse: 14 },
+  { ref: 'Matthew 6:33', text: 'But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you.', book: 'Matthew', chapter: '6', verse: 33 },
+  { ref: 'Isaiah 40:31', text: 'But they that wait upon the Lord shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary.', book: 'Isaiah', chapter: '40', verse: 31 },
+  { ref: 'Psalm 34:8', text: 'O taste and see that the Lord is good: blessed is the man that trusteth in him.', book: 'Psalms', chapter: '34', verse: 8 },
+  { ref: 'Romans 15:13', text: 'Now the God of hope fill you with all joy and peace in believing, that ye may abound in hope, through the power of the Holy Ghost.', book: 'Romans', chapter: '15', verse: 13 },
+  { ref: 'Lamentations 3:22-23', text: 'It is of the Lord\'s mercies that we are not consumed, because his compassions fail not. They are new every morning: great is thy faithfulness.', book: 'Lamentations', chapter: '3', verse: 22 },
+  { ref: 'Philippians 4:6', text: 'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.', book: 'Philippians', chapter: '4', verse: 6 },
+  { ref: 'Psalm 91:1', text: 'He that dwelleth in the secret place of the most High shall abide under the shadow of the Almighty.', book: 'Psalms', chapter: '91', verse: 1 },
+  { ref: 'Matthew 5:16', text: 'Let your light so shine before men, that they may see your good works, and glorify your Father which is in heaven.', book: 'Matthew', chapter: '5', verse: 16 },
+  { ref: 'Micah 6:8', text: 'He hath shewed thee, O man, what is good; and what doth the Lord require of thee, but to do justly, and to love mercy, and to walk humbly with thy God?', book: 'Micah', chapter: '6', verse: 8 },
+];
 
 export default function Home() {
   const { profile, user, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const scrollDirection = useScrollDirection();
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [streak, setStreak] = useState(0);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState('');
+
+  const todayVerse = VERSES_OF_THE_DAY[getDayOfYear(new Date()) % VERSES_OF_THE_DAY.length];
 
   useEffect(() => {
     if (user) {
@@ -101,6 +138,7 @@ export default function Home() {
 
   const fetchRecentNotes = async () => {
     try {
+      setNotesLoading(true);
       const { data, error } = await supabase
         .from('notes')
         .select(`
@@ -120,6 +158,8 @@ export default function Home() {
       setRecentNotes(data || []);
     } catch (err) {
       console.error('Error fetching notes:', err);
+    } finally {
+      setNotesLoading(false);
     }
   };
 
@@ -211,8 +251,20 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Verse of the Day */}
+        <div
+          onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
+          className="bg-bg-surface border border-border rounded-2xl p-5 mb-4 cursor-pointer hover:bg-bg-hover transition-colors border-l-[3px] border-l-gold"
+        >
+          <p className="text-[10px] uppercase tracking-[0.1em] text-text-muted mb-3 font-medium">Verse of the Day</p>
+          <p className="text-[15px] text-text-secondary italic leading-relaxed mb-3">
+            "{todayVerse.text}"
+          </p>
+          <p className="text-[13px] font-medium text-gold">{todayVerse.ref}</p>
+        </div>
+
         {/* Today's Reading Card */}
-        <div 
+        <div
           onClick={() => navigate('/bible')}
           className="bg-bg-surface border border-border rounded-2xl p-5 mb-8 relative overflow-hidden cursor-pointer hover:border-gold transition-colors group"
         >
@@ -256,7 +308,11 @@ export default function Home() {
             </button>
           </div>
           
-          {recentNotes.length > 0 ? (
+          {notesLoading ? (
+            <div className="space-y-3 mb-4">
+              {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+            </div>
+          ) : recentNotes.length > 0 ? (
             <div className="space-y-3 mb-4">
               {recentNotes.map((note) => (
                 <div key={note.id} onClick={() => note.book && note.chapter ? navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`) : undefined} className="bg-bg-surface border border-border rounded-xl p-4 hover:bg-bg-hover cursor-pointer transition-colors">

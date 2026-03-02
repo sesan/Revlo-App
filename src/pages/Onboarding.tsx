@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
@@ -105,33 +106,48 @@ export default function Onboarding() {
         ))}
       </div>
 
-      <p className="text-center text-[12px] text-text-muted mb-8">
+      <p className="text-center text-[12px] text-text-muted mb-1">
         Step {currentStep + 1} of 3
       </p>
+      <p className="text-center text-[13px] text-text-secondary mb-8">
+        Let's personalize your experience
+      </p>
 
-      <h1 className="text-[28px] font-bold tracking-tighter text-text-primary text-center max-w-[340px] mx-auto mb-10">
-        {stepData.question}
-      </h1>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentStep}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -40 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+        >
+          <h1 className="text-[28px] font-bold tracking-tighter text-text-primary text-center max-w-[340px] mx-auto mb-10">
+            {stepData.question}
+          </h1>
 
-      <div className="flex-1 space-y-3">
-        {stepData.options.map((option) => {
-          const isSelected = answers[currentStep] === option;
-          return (
-            <button
-              key={option}
-              onClick={() => handleSelect(option)}
-              className={`w-full text-left p-4 rounded-[14px] border min-h-[56px] transition-all flex items-center justify-between ${
-                isSelected
-                  ? 'bg-gold-subtle border-gold'
-                  : 'bg-bg-surface border-border hover:bg-bg-hover'
-              }`}
-            >
-              <span className="text-[15px] text-text-primary">{option}</span>
-              {isSelected && <Check className="text-gold" size={20} />}
-            </button>
-          );
-        })}
-      </div>
+          <div className="space-y-3">
+            {stepData.options.map((option) => {
+              const isSelected = answers[currentStep] === option;
+              return (
+                <button
+                  key={option}
+                  onClick={() => handleSelect(option)}
+                  className={`w-full text-left p-4 rounded-[14px] border min-h-[56px] transition-all flex items-center justify-between ${
+                    isSelected
+                      ? 'bg-gold-subtle border-gold'
+                      : 'bg-bg-surface border-border hover:bg-bg-hover'
+                  }`}
+                >
+                  <span className="text-[15px] text-text-primary">{option}</span>
+                  {isSelected && <Check className="text-gold" size={20} />}
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="flex-1" />
 
       <div className="flex justify-between items-center mt-8 pb-4">
         {currentStep > 0 ? (

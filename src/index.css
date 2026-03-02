@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=EB+Garamond:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -40,7 +40,7 @@
   --color-border-focus: #111111;
 
   --font-sans: 'Inter', sans-serif;
-  --font-serif: 'Inter', sans-serif;
+  --font-serif: 'EB Garamond', Georgia, serif;
 }
 
 @layer base {
