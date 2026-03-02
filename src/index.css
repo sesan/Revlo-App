@@ -24,7 +24,7 @@
   --color-gold: #111111;
   --color-gold-hover: #333333;
   --color-gold-subtle: #F0F0F0;
-  --color-gold-border: #858585;
+  --color-gold-border: #949494;
 
   --color-success: #111111;
   --color-error: #C62828;
@@ -36,7 +36,8 @@
   --color-highlight-pink: var(--color-highlight-pink);
   --color-highlight-red: var(--color-highlight-red);
 
-  --color-border: #858585;
+  --color-border: #E5E5E5;
+  --color-border-strong: #858585;
   --color-border-focus: #111111;
 
   --font-sans: 'Inter', sans-serif;
