@@ -69,6 +69,9 @@ export default function Bible() {
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0, bottomY: 0 });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isTouchPointer, setIsTouchPointer] = useState(
+    typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse)').matches : false
+  );
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showNoteSheet, setShowNoteSheet] = useState(false);
   const [showJournalSheet, setShowJournalSheet] = useState(false);
@@ -103,6 +106,7 @@ export default function Bible() {
     
     const handleResize = () => {
       setIsMobile(window.innerWidth < 640);
+      setIsTouchPointer(window.matchMedia('(pointer: coarse)').matches);
     };
     
     window.addEventListener('scroll', handleScroll);
@@ -460,7 +464,7 @@ export default function Bible() {
 
   const handleWordClick = (e: React.MouseEvent, verseId: string, wordIndex: number) => {
     e.stopPropagation();
-    if (isSelecting || isMobile) return; // Disable single-tap selection on mobile
+    if (isSelecting || isMobile || isTouchPointer) return; // Disable single-tap selection on touch devices
     
     if (selectedWords.length > 0) {
       const isWordSelected = selectedWords.some(w => w.verseId === verseId && w.wordIndex === wordIndex);
@@ -496,7 +500,7 @@ export default function Bible() {
 
   const handleVerseClick = (e: React.MouseEvent, verseId: string) => {
     e.stopPropagation();
-    if (!currentPassage || isMobile) return; // Disable single-tap selection on mobile
+    if (!currentPassage || isMobile || isTouchPointer) return; // Disable single-tap selection on touch devices
     const verse = currentPassage.verses.find(v => v.verse.toString() === verseId);
     if (!verse) return;
 
@@ -905,7 +909,7 @@ export default function Bible() {
                           data-word-index={i}
                           onClick={(e) => handleWordClick(e, v.verse.toString(), i)}
                           onTouchStart={(e) => handleWordPointerDown(e, v.verse.toString(), i)}
-                          onMouseDown={(e) => isMobile ? handleWordPointerDown(e, v.verse.toString(), i) : handlePointerDown(e, v.verse.toString(), i)}
+                          onMouseDown={(e) => (isMobile || isTouchPointer) ? handleWordPointerDown(e, v.verse.toString(), i) : handlePointerDown(e, v.verse.toString(), i)}
                           className={`relative cursor-pointer transition-colors ${isSelected ? 'bg-blue-500/30' : ''}`}
                           style={{
                             backgroundColor: highlightColor && !isSelected 

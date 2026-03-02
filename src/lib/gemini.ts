@@ -64,6 +64,7 @@ function getFallbackPlan(interests: string[]): PersonalizedPlan {
 }
 
 export async function generatePersonalizedPlan(input: PlanInput): Promise<PersonalizedPlan> {
+  // @ts-ignore
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
   if (!apiKey) {

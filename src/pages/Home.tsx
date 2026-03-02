@@ -6,6 +6,7 @@ import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import BottomNav from '../components/BottomNav';
 import SetupChecklist from '../components/SetupChecklist';
+import RecommendationsCard from '../components/RecommendationsCard';
 import StatisticsDashboard from '../components/StatisticsDashboard';
 import MotivationalBanner from '../components/MotivationalBanner';
 import { SkeletonCard } from '../components/Skeleton';
@@ -67,20 +68,33 @@ export default function Home() {
 
   // Parse onboarding answers
   const { purpose, experience, interests } = useMemo(() => {
-    return parseOnboardingAnswers(profile?.onboarding_answers);
+    const parsed = parseOnboardingAnswers(profile?.onboarding_answers);
+    console.log('Parsed onboarding:', parsed);
+    return parsed;
   }, [profile?.onboarding_answers]);
 
   // Generate personalized recommendations
   useEffect(() => {
+    console.log('Recommendations effect running:', { profile: !!profile, interestsLength: interests.length });
     if (profile && interests.length > 0) {
-      setRecommendationsLoading(true);
-      const recs = getPersonalizedRecommendations({
-        purpose,
-        experience,
-        interests,
-        currentPlan: profile.current_plan,
-      });
-      setRecommendations(recs);
+      try {
+        setRecommendationsLoading(true);
+        const recs = getPersonalizedRecommendations({
+          purpose,
+          experience,
+          interests,
+          currentPlan: profile.current_plan,
+        });
+        console.log('Generated recommendations:', recs);
+        setRecommendations(recs);
+      } catch (error) {
+        console.error('Error generating recommendations:', error);
+        setRecommendations([]);
+      } finally {
+        setRecommendationsLoading(false);
+      }
+    } else {
+      console.log('Skipping recommendations - no profile or interests');
       setRecommendationsLoading(false);
     }
   }, [profile, purpose, experience, interests]);
@@ -95,7 +109,7 @@ export default function Home() {
       hasActivityToday,
       lastActivityDate,
     });
-  }, [purpose, streak, hasActivityToday, lastActivityDate]);
+  }, [profile, purpose, streak, hasActivityToday, lastActivityDate]);
 
   // Get dynamic subtitle for greeting
   const greetingSubtitle = useMemo(() => {
@@ -316,6 +330,12 @@ export default function Home() {
             onNamePrompt={triggerNamePrompt}
           />
         </AnimatePresence>
+
+        {/* Recommendations Card */}
+        <RecommendationsCard
+          recommendations={recommendations}
+          loading={recommendationsLoading}
+        />
 
         <section>
           <div className="flex items-center justify-between mb-3">

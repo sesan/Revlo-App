@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, BookOpen, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { useTranslation } from '../lib/TranslationContext';
 import BottomNav from '../components/BottomNav';
 import { SkeletonCard } from '../components/Skeleton';
 import { useScrollDirection } from '../hooks/useScrollDirection';
@@ -13,6 +14,7 @@ type FilterType = 'All' | 'Highlights' | 'Notes' | 'Journal' | 'Voice' | 'Bookma
 export default function Notes() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { translation } = useTranslation();
   const scrollDirection = useScrollDirection();
   const [notes, setNotes] = useState<any[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<any[]>([]);
@@ -27,7 +29,7 @@ export default function Notes() {
     if (user) {
       fetchNotes();
     }
-  }, [user]);
+  }, [user, translation]);
 
   useEffect(() => {
     filterNotes();
@@ -36,7 +38,9 @@ export default function Notes() {
   const fetchNotes = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+
+      // Fetch notes with translation filter
+      const { data: notesData, error: notesError } = await supabase
         .from('notes')
         .select(`
           id,
@@ -47,21 +51,63 @@ export default function Notes() {
           created_at,
           book,
           chapter,
-          verse
+          verse,
+          translation
         `)
         .eq('user_id', user?.id)
+        .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setNotes(data || []);
-      
-      // Extract unique tags
+      if (notesError) throw notesError;
+
+      // Fetch highlights with translation filter
+      const { data: highlightsData, error: highlightsError } = await supabase
+        .from('highlights')
+        .select(`
+          id,
+          color,
+          created_at,
+          book,
+          chapter,
+          verse,
+          word_start,
+          word_end,
+          translation
+        `)
+        .eq('user_id', user?.id)
+        .or(`translation.eq.${translation},show_in_all_translations.eq.true`)
+        .order('created_at', { ascending: false });
+
+      if (highlightsError) throw highlightsError;
+
+      // Transform highlights to match notes structure
+      const transformedHighlights = (highlightsData || []).map((h: any) => ({
+        id: h.id,
+        content: `Highlighted text (${h.color})`,
+        type: 'highlight',
+        color: h.color,
+        tags: [],
+        created_at: h.created_at,
+        book: h.book,
+        chapter: h.chapter,
+        verse: h.verse,
+        translation: h.translation,
+      }));
+
+      // Merge notes and highlights, sort by date
+      const allItems = [...(notesData || []), ...transformedHighlights].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      setNotes(allItems);
+
+      // Extract unique tags from notes only
       const tags = new Set<string>();
-      data?.forEach((note: any) => {
+      notesData?.forEach((note: any) => {
         note.tags?.forEach((tag: string) => tags.add(tag));
       });
       setAllTags(Array.from(tags).sort());
-      
+
     } catch (err) {
       console.error('Error fetching notes:', err);
     } finally {
@@ -136,25 +182,28 @@ export default function Notes() {
     }
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent, type: string) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to delete this note?')) return;
+    if (!window.confirm(`Are you sure you want to delete this ${type === 'highlight' ? 'highlight' : 'note'}?`)) return;
 
     try {
-      const { error } = await supabase.from('notes').delete().eq('id', id);
+      // Delete from appropriate table based on type
+      const table = type === 'highlight' ? 'highlights' : 'notes';
+      const { error } = await supabase.from(table).delete().eq('id', id);
       if (error) throw error;
       setNotes(notes.filter(n => n.id !== id));
     } catch (err) {
-      console.error('Error deleting note:', err);
+      console.error('Error deleting:', err);
     }
   };
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'highlight': return 'bg-bg-hover text-text-primary';
+      case 'highlight': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200';
       case 'note': return 'bg-bg-hover text-text-primary';
       case 'journal': return 'bg-gold-subtle text-gold';
       case 'voice': return 'bg-bg-hover text-text-primary';
+      case 'bookmark': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200';
       default: return 'bg-border text-text-muted';
     }
   };
@@ -260,14 +309,24 @@ export default function Notes() {
                   </div>
 
                   <div className={`text-[14px] text-text-secondary mt-2 mb-3 ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                    {note.content ? highlightText(note.content, searchQuery) : 'No content'}
+                    {note.type === 'highlight' ? (
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded-full border border-border shrink-0"
+                          style={{ backgroundColor: `var(--color-highlight-${note.color})` }}
+                        />
+                        <span>{note.content}</span>
+                      </div>
+                    ) : (
+                      note.content ? highlightText(note.content, searchQuery) : 'No content'
+                    )}
                   </div>
 
                   <div className="flex justify-between items-center mt-auto pt-2">
                     <div className="flex gap-1.5 flex-wrap">
                       {note.tags?.map((tag: string) => (
-                        <span 
-                          key={tag} 
+                        <span
+                          key={tag}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedTag(tag);
@@ -277,15 +336,17 @@ export default function Notes() {
                           #{tag}
                         </span>
                       ))}
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          handleAddTag(note.id, note.tags);
-                        }}
-                        className="bg-bg-elevated border border-border text-text-muted hover:text-gold text-[11px] px-2 py-0.5 rounded-full flex items-center"
-                      >
-                        <Plus size={12} />
-                      </button>
+                      {note.type !== 'highlight' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddTag(note.id, note.tags);
+                          }}
+                          className="bg-bg-elevated border border-border text-text-muted hover:text-gold text-[11px] px-2 py-0.5 rounded-full flex items-center"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-3">
@@ -293,7 +354,7 @@ export default function Notes() {
                         {format(new Date(note.created_at), 'MMM d')}
                       </span>
                       <button
-                        onClick={(e) => handleDelete(note.id, e)}
+                        onClick={(e) => handleDelete(note.id, e, note.type)}
                         className="text-text-muted hover:text-error transition-colors p-1"
                         aria-label="Delete note"
                       >
