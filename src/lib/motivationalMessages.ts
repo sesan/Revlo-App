@@ -36,7 +36,7 @@ export function getMotivationalMessage(context: {
       return {
         type: 'milestone',
         icon: Flame,
-        message: '3-day streak! You're building momentum.',
+        message: '3-day streak! You\'re building momentum.',
         actionText: 'Keep going',
         actionPath: '/bible',
       };
@@ -98,14 +98,14 @@ export function getMotivationalMessage(context: {
     return {
       type: 'milestone',
       icon: Sparkles,
-      message: 'You've read 25 verses! Keep exploring.',
+      message: 'You\'ve read 25 verses! Keep exploring.',
     };
   }
   if (versesRead === 50) {
     return {
       type: 'milestone',
       icon: Sparkles,
-      message: '50 verses read! You're making great progress.',
+      message: '50 verses read! You\'re making great progress.',
     };
   }
   if (versesRead === 100) {
@@ -139,7 +139,7 @@ export function getMotivationalMessage(context: {
     "I'm exploring who Jesus is": {
       type: 'encouragement',
       icon: BookOpen,
-      message: 'Discover more about Jesus in today's reading.',
+      message: 'Discover more about Jesus in today\'s reading.',
       actionText: 'Explore',
       actionPath: '/bible',
     },
@@ -153,7 +153,7 @@ export function getMotivationalMessage(context: {
     "I'm going through something difficult": {
       type: 'encouragement',
       icon: Heart,
-      message: 'Find comfort and strength in today's verses.',
+      message: 'Find comfort and strength in today\'s verses.',
       actionText: 'Find peace',
       actionPath: '/bible',
     },
@@ -167,7 +167,7 @@ export function getMotivationalMessage(context: {
     "I'm studying the Bible seriously": {
       type: 'encouragement',
       icon: BookOpen,
-      message: 'Continue your serious study of God's word.',
+      message: 'Continue your serious study of God\'s word.',
       actionText: 'Study',
       actionPath: '/bible',
     },
