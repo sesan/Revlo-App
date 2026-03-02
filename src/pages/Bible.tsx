@@ -1095,18 +1095,6 @@ export default function Bible() {
       {/* Popup Action Menu */}
       {selectedWords.length > 0 && !isSelecting && !draggingPin && (
         <>
-          {/* Mobile Overlay */}
-          {isMobile && (
-            <div 
-              className="fixed inset-0 bg-black/20 z-40 animate-in fade-in duration-200" 
-              onClick={() => {
-                if (justFinishedSelection.current) return;
-                setShowColorPicker(false);
-                setSelectedWords([]);
-              }} 
-            />
-          )}
-          
           <div 
             className={`fixed z-50 bg-bg-elevated border border-border shadow-2xl overflow-hidden animate-in duration-200 ${
               isMobile
