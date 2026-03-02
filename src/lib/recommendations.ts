@@ -27,17 +27,17 @@ const VERSE_COLLECTIONS = {
     { ref: 'Psalm 119:11', book: 'Psalms', chapter: '119', verse: 11, text: 'Thy word have I hid in mine heart, that I might not sin against thee.', reason: 'The power of memorizing Scripture' },
     { ref: 'Joshua 1:8', book: 'Joshua', chapter: '1', verse: 8, text: 'This book of the law shall not depart out of thy mouth; but thou shalt meditate therein day and night.', reason: 'Daily meditation brings success' },
     { ref: 'Psalm 1:2', book: 'Psalms', chapter: '1', verse: 2, text: 'But his delight is in the law of the Lord; and in his law doth he meditate day and night.', reason: 'Delight in daily reading' },
-    { ref: 'Deuteronomy 6:6-7', book: 'Deuteronomy', chapter: '6', verse: 6, text: 'And these words, which I command thee this day, shall be in thine heart: And thou shalt teach them diligently.', reason: 'Keep God's word in your heart' },
+    { ref: 'Deuteronomy 6:6-7', book: 'Deuteronomy', chapter: '6', verse: 6, text: 'And these words, which I command thee this day, shall be in thine heart: And thou shalt teach them diligently.', reason: "Keep God's word in your heart" },
     { ref: 'Colossians 3:16', book: 'Colossians', chapter: '3', verse: 16, text: 'Let the word of Christ dwell in you richly in all wisdom.', reason: 'Let Scripture live in you' },
     { ref: 'James 1:22', book: 'James', chapter: '1', verse: 22, text: 'But be ye doers of the word, and not hearers only, deceiving your own selves.', reason: 'Act on what you read' },
     { ref: '2 Timothy 3:16', book: '2 Timothy', chapter: '3', verse: 16, text: 'All scripture is given by inspiration of God, and is profitable for doctrine, for reproof, for correction, for instruction in righteousness.', reason: 'Why Scripture matters' },
-    { ref: 'Hebrews 4:12', book: 'Hebrews', chapter: '4', verse: 12, text: 'For the word of God is quick, and powerful, and sharper than any twoedged sword.', reason: 'The power of God's word' },
+    { ref: 'Hebrews 4:12', book: 'Hebrews', chapter: '4', verse: 12, text: 'For the word of God is quick, and powerful, and sharper than any twoedged sword.', reason: "The power of God's word" },
     { ref: 'Psalm 119:105', book: 'Psalms', chapter: '119', verse: 105, text: 'Thy word is a lamp unto my feet, and a light unto my path.', reason: 'Scripture guides your steps' },
     { ref: '1 Peter 2:2', book: '1 Peter', chapter: '2', verse: 2, text: 'As newborn babes, desire the sincere milk of the word, that ye may grow thereby.', reason: 'Grow through the word' },
   ],
 
   difficult_times: [
-    { ref: 'Psalm 23:4', book: 'Psalms', chapter: '23', verse: 4, text: 'Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me.', reason: 'God's presence in dark times' },
+    { ref: 'Psalm 23:4', book: 'Psalms', chapter: '23', verse: 4, text: 'Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me.', reason: "God's presence in dark times" },
     { ref: 'Isaiah 41:10', book: 'Isaiah', chapter: '41', verse: 10, text: 'Fear thou not; for I am with thee: be not dismayed; for I am thy God: I will strengthen thee; yea, I will help thee.', reason: 'God promises strength' },
     { ref: '2 Corinthians 12:9', book: '2 Corinthians', chapter: '12', verse: 9, text: 'And he said unto me, My grace is sufficient for thee: for my strength is made perfect in weakness.', reason: 'Grace in weakness' },
     { ref: 'Romans 8:28', book: 'Romans', chapter: '8', verse: 28, text: 'And we know that all things work together for good to them that love God.', reason: 'God works in all circumstances' },
@@ -67,15 +67,15 @@ const VERSE_COLLECTIONS = {
     { ref: 'Acts 17:11', book: 'Acts', chapter: '17', verse: 11, text: 'These were more noble than those in Thessalonica, in that they received the word with all readiness of mind, and searched the scriptures daily.', reason: 'Daily searching of Scripture' },
     { ref: 'Psalm 119:18', book: 'Psalms', chapter: '119', verse: 18, text: 'Open thou mine eyes, that I may behold wondrous things out of thy law.', reason: 'Prayer for understanding' },
     { ref: 'Proverbs 2:3-5', book: 'Proverbs', chapter: '2', verse: 3, text: 'Yea, if thou criest after knowledge, and liftest up thy voice for understanding; Then shalt thou understand the fear of the Lord.', reason: 'Seeking wisdom diligently' },
-    { ref: 'Ezra 7:10', book: 'Ezra', chapter: '7', verse: 10, text: 'For Ezra had prepared his heart to seek the law of the Lord, and to do it, and to teach in Israel statutes and judgments.', reason: 'Ezra's example of study' },
-    { ref: '1 Corinthians 2:13', book: '1 Corinthians', chapter: '2', verse: 13, text: 'Which things also we speak, not in the words which man's wisdom teacheth, but which the Holy Ghost teacheth.', reason: 'Spirit-led understanding' },
+    { ref: 'Ezra 7:10', book: 'Ezra', chapter: '7', verse: 10, text: 'For Ezra had prepared his heart to seek the law of the Lord, and to do it, and to teach in Israel statutes and judgments.', reason: "Ezra's example of study" },
+    { ref: '1 Corinthians 2:13', book: '1 Corinthians', chapter: '2', verse: 13, text: "Which things also we speak, not in the words which man's wisdom teacheth, but which the Holy Ghost teacheth.", reason: 'Spirit-led understanding' },
     { ref: 'Luke 24:27', book: 'Luke', chapter: '24', verse: 27, text: 'And beginning at Moses and all the prophets, he expounded unto them in all the scriptures the things concerning himself.', reason: 'Jesus teaching Scripture' },
     { ref: 'John 5:39', book: 'John', chapter: '5', verse: 39, text: 'Search the scriptures; for in them ye think ye have eternal life: and they are they which testify of me.', reason: 'Searching for Jesus in Scripture' },
   ],
 
   // Interest-based collections
   prayer: [
-    { ref: 'Matthew 6:9-13', book: 'Matthew', chapter: '6', verse: 9, text: 'After this manner therefore pray ye: Our Father which art in heaven, Hallowed be thy name.', reason: 'The Lord's Prayer model' },
+    { ref: 'Matthew 6:9-13', book: 'Matthew', chapter: '6', verse: 9, text: 'After this manner therefore pray ye: Our Father which art in heaven, Hallowed be thy name.', reason: "The Lord's Prayer model" },
     { ref: 'Philippians 4:6', book: 'Philippians', chapter: '4', verse: 6, text: 'Be careful for nothing; but in every thing by prayer and supplication with thanksgiving let your requests be made known unto God.', reason: 'Pray with thanksgiving' },
     { ref: '1 Thessalonians 5:17', book: '1 Thessalonians', chapter: '5', verse: 17, text: 'Pray without ceasing.', reason: 'Continuous prayer life' },
     { ref: 'James 5:16', book: 'James', chapter: '5', verse: 16, text: 'The effectual fervent prayer of a righteous man availeth much.', reason: 'Power of prayer' },
@@ -86,20 +86,20 @@ const VERSE_COLLECTIONS = {
   ],
 
   peace_comfort: [
-    { ref: 'Philippians 4:7', book: 'Philippians', chapter: '4', verse: 7, text: 'And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.', reason: 'God's supernatural peace' },
+    { ref: 'Philippians 4:7', book: 'Philippians', chapter: '4', verse: 7, text: 'And the peace of God, which passeth all understanding, shall keep your hearts and minds through Christ Jesus.', reason: "God's supernatural peace" },
     { ref: 'John 14:27', book: 'John', chapter: '14', verse: 27, text: 'Peace I leave with you, my peace I give unto you: not as the world giveth, give I unto you.', reason: 'Jesus gives lasting peace' },
     { ref: 'Isaiah 26:3', book: 'Isaiah', chapter: '26', verse: 3, text: 'Thou wilt keep him in perfect peace, whose mind is stayed on thee.', reason: 'Peace through focus on God' },
     { ref: 'Psalm 29:11', book: 'Psalms', chapter: '29', verse: 11, text: 'The Lord will give strength unto his people; the Lord will bless his people with peace.', reason: 'God blesses with peace' },
     { ref: 'Romans 15:13', book: 'Romans', chapter: '15', verse: 13, text: 'Now the God of hope fill you with all joy and peace in believing.', reason: 'Joy and peace through belief' },
     { ref: '2 Thessalonians 3:16', book: '2 Thessalonians', chapter: '3', verse: 16, text: 'Now the Lord of peace himself give you peace always by all means.', reason: 'Peace in all circumstances' },
-    { ref: 'Psalm 119:165', book: 'Psalms', chapter: '119', verse: 165, text: 'Great peace have they which love thy law: and nothing shall offend them.', reason: 'Peace through loving God's word' },
+    { ref: 'Psalm 119:165', book: 'Psalms', chapter: '119', verse: 165, text: 'Great peace have they which love thy law: and nothing shall offend them.', reason: "Peace through loving God's word" },
     { ref: 'Colossians 3:15', book: 'Colossians', chapter: '3', verse: 15, text: 'And let the peace of God rule in your hearts, to the which also ye are called in one body.', reason: 'Let peace rule your heart' },
   ],
 
   purpose: [
     { ref: 'Jeremiah 29:11', book: 'Jeremiah', chapter: '29', verse: 11, text: 'For I know the thoughts that I think toward you, saith the Lord, thoughts of peace, and not of evil, to give you an expected end.', reason: 'God has plans for you' },
     { ref: 'Ephesians 2:10', book: 'Ephesians', chapter: '2', verse: 10, text: 'For we are his workmanship, created in Christ Jesus unto good works, which God hath before ordained that we should walk in them.', reason: 'Created with purpose' },
-    { ref: 'Proverbs 19:21', book: 'Proverbs', chapter: '19', verse: 21, text: 'There are many devices in a man's heart; nevertheless the counsel of the Lord, that shall stand.', reason: 'God's plan prevails' },
+    { ref: 'Proverbs 19:21', book: 'Proverbs', chapter: '19', verse: 21, text: "There are many devices in a man's heart; nevertheless the counsel of the Lord, that shall stand.", reason: "God's plan prevails" },
     { ref: 'Romans 8:29', book: 'Romans', chapter: '8', verse: 29, text: 'For whom he did foreknow, he also did predestinate to be conformed to the image of his Son.', reason: 'Called to be like Christ' },
     { ref: '1 Peter 2:9', book: '1 Peter', chapter: '2', verse: 9, text: 'But ye are a chosen generation, a royal priesthood, an holy nation, a peculiar people.', reason: 'Your identity in Christ' },
     { ref: 'Colossians 1:16', book: 'Colossians', chapter: '1', verse: 16, text: 'For by him were all things created, that are in heaven, and that are in earth, visible and invisible...all things were created by him, and for him.', reason: 'Created for Christ' },
@@ -109,7 +109,7 @@ const VERSE_COLLECTIONS = {
 
   love_family: [
     { ref: '1 Corinthians 13:4-7', book: '1 Corinthians', chapter: '13', verse: 4, text: 'Charity suffereth long, and is kind; charity envieth not; charity vaunteth not itself, is not puffed up.', reason: 'Definition of true love' },
-    { ref: '1 John 4:8', book: '1 John', chapter: '4', verse: 8, text: 'He that loveth not knoweth not God; for God is love.', reason: 'God's nature is love' },
+    { ref: '1 John 4:8', book: '1 John', chapter: '4', verse: 8, text: 'He that loveth not knoweth not God; for God is love.', reason: "God's nature is love" },
     { ref: 'John 13:34', book: 'John', chapter: '13', verse: 34, text: 'A new commandment I give unto you, That ye love one another; as I have loved you, that ye also love one another.', reason: 'Command to love' },
     { ref: 'Ephesians 4:2', book: 'Ephesians', chapter: '4', verse: 2, text: 'With all lowliness and meekness, with longsuffering, forbearing one another in love.', reason: 'Patient, humble love' },
     { ref: '1 John 4:19', book: '1 John', chapter: '4', verse: 19, text: 'We love him, because he first loved us.', reason: 'Love flows from God' },
