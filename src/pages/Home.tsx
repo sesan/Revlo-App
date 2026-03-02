@@ -438,25 +438,27 @@ export default function Home() {
           />
         </AnimatePresence>
 
-        {/* Recommendations Card */}
-        <RecommendationsCard
-          recommendations={recommendations}
-          loading={recommendationsLoading}
-        />
+        {/* Verse of the Day */}
+        <button
+          onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
+          className="w-full text-left rounded-2xl overflow-hidden relative bg-gradient-to-br from-[#1a3a3a] via-[#1e4040] to-[#0f2b2b] p-6 sm:p-8 hover:opacity-95 transition-opacity"
+        >
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/60 mb-3 font-medium">
+            Verse of the Day
+          </p>
+          <h3 className="text-[15px] sm:text-[16px] font-bold text-white mb-3">
+            {todayVerse.ref}
+          </h3>
+          <p className="text-[18px] sm:text-[20px] leading-[1.5] text-white/90 font-serif">
+            "{todayVerse.text}"
+          </p>
+        </button>
 
         <section>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Bible Tools</h3>
           </div>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
-            <button
-              onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
-              className="min-w-[190px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
-            >
-              <p className="text-[11px] uppercase tracking-[0.12em] text-text-muted mb-2">Verse of the Day</p>
-              <p className="text-[14px] font-medium text-text-primary line-clamp-2 mb-1">{todayVerse.ref}</p>
-              <p className="text-[12px] text-text-secondary line-clamp-2">"{todayVerse.text}"</p>
-            </button>
             <button
               onClick={() => navigate('/bible')}
               className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
@@ -513,28 +515,6 @@ export default function Home() {
           )}
         </section>
 
-        <section className="rounded-2xl border border-border bg-bg-surface p-5">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.11em] text-text-muted mb-1">Continue Plan</p>
-              <h3 className="text-[20px] font-bold tracking-tight text-text-primary">{profile?.current_plan || 'The Story of Jesus'}</h3>
-              <p className="text-[13px] text-text-secondary">Day {profile?.current_day || 1} • Keep momentum</p>
-            </div>
-            <button
-              onClick={() => navigate('/bible')}
-              className="w-10 h-10 rounded-full bg-bg-hover border border-border flex items-center justify-center text-text-primary hover:bg-gold hover:text-white hover:border-gold transition-colors"
-              aria-label="Continue to Bible reading plan"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-          <div className="h-1.5 bg-bg-hover rounded-full overflow-hidden">
-            <div
-              className="h-full bg-text-primary rounded-full transition-all duration-500"
-              style={{ width: `${((profile?.current_day || 1) / 7) * 100}%` }}
-            />
-          </div>
-        </section>
 
         <section>
           <div className="flex justify-between items-center mb-3">
