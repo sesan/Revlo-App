@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   ArrowLeft,
   BookOpen,
@@ -10,6 +10,7 @@ import {
   Users,
   Shield,
   HandHeart,
+  Check,
 } from 'lucide-react';
 import { supabase } from '@/shared/services/supabase';
 import { useAuth } from '@/app/providers/AuthContext';
@@ -17,17 +18,17 @@ import { generatePersonalizedPlan } from '@/shared/services/gemini';
 
 const PURPOSE_OPTIONS = [
   "I'm exploring who Jesus is",
-  "I want to build a daily reading habit",
+  'I want to build a daily reading habit',
   "I'm going through something difficult",
-  "I want to go deeper in my faith",
+  'I want to go deeper in my faith',
   "I'm studying the Bible seriously",
 ];
 
 const EXPERIENCE_OPTIONS = [
-  "Complete beginner",
+  'Complete beginner',
   "I've read some stories",
-  "I read regularly",
-  "I study it seriously",
+  'I read regularly',
+  'I study it seriously',
 ];
 
 interface InterestOption {
@@ -38,18 +39,123 @@ interface InterestOption {
 }
 
 const INTEREST_OPTIONS: InterestOption[] = [
-  { label: "Who is Jesus?", icon: Search, plan: "The Story of Jesus", topic: "Who is Jesus?" },
-  { label: "Prayer", icon: HandHeart, plan: "Learning to Talk to God", topic: "How do I pray?" },
-  { label: "Peace & Comfort", icon: Heart, plan: "Held by Peace", topic: "Finding peace and comfort" },
-  { label: "God's Purpose", icon: Compass, plan: "Made with Purpose", topic: "Understanding God's purpose for my life" },
-  { label: "Love & Family", icon: Users, plan: "Love as Scripture Defines It", topic: "Love, relationships, and family" },
-  { label: "Overcoming Fear", icon: Shield, plan: "Fear Not", topic: "Overcoming fear and anxiety" },
+  { label: 'Who is Jesus?', icon: Search, plan: 'The Story of Jesus', topic: 'Who is Jesus?' },
+  { label: 'Prayer', icon: HandHeart, plan: 'Learning to Talk to God', topic: 'How do I pray?' },
+  { label: 'Peace & Comfort', icon: Heart, plan: 'Held by Peace', topic: 'Finding peace and comfort' },
+  { label: "God's Purpose", icon: Compass, plan: 'Made with Purpose', topic: "Understanding God's purpose for my life" },
+  { label: 'Love & Family', icon: Users, plan: 'Love as Scripture Defines It', topic: 'Love, relationships, and family' },
+  { label: 'Overcoming Fear', icon: Shield, plan: 'Fear Not', topic: 'Overcoming fear and anxiety' },
 ];
 
 const TOTAL_STEPS = 4;
 
+type OnboardingHeaderProps = {
+  currentStep: number;
+  onBack: () => void;
+  onSkip: () => void;
+  canGoBack: boolean;
+};
+
+function ProgressSegments({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
+  return (
+    <div className="flex gap-1.5" aria-hidden="true">
+      {Array.from({ length: totalSteps }, (_, i) => (
+        <div
+          key={i}
+          className={`h-[4px] flex-1 rounded-full transition-colors duration-200 ${
+            i < currentStep ? 'bg-text-primary' : 'bg-border'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function OnboardingHeader({ currentStep, onBack, onSkip, canGoBack }: OnboardingHeaderProps) {
+  return (
+    <header className="sticky top-0 z-20 bg-bg-base/95 backdrop-blur-sm px-6 pt-6 pb-3 border-b border-border/70">
+      <div className="flex items-center justify-between mb-4 min-h-11">
+        <button
+          onClick={onBack}
+          disabled={!canGoBack}
+          className="h-11 w-11 rounded-full flex items-center justify-center text-text-primary hover:bg-bg-hover disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={20} />
+        </button>
+
+        <p className="text-[13px] font-medium text-text-secondary" aria-live="polite">
+          Step {currentStep} of {TOTAL_STEPS}
+        </p>
+
+        {currentStep < TOTAL_STEPS ? (
+          <button
+            onClick={onSkip}
+            className="h-11 px-3 text-[14px] font-medium text-text-secondary hover:text-text-primary transition-colors"
+            aria-label="Skip this step"
+          >
+            Skip
+          </button>
+        ) : (
+          <div className="w-11" aria-hidden="true" />
+        )}
+      </div>
+      <ProgressSegments currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+    </header>
+  );
+}
+
+type SelectableCardProps = {
+  label: string;
+  selected: boolean;
+  onSelect: () => void;
+  roleType: 'radio' | 'button';
+};
+
+function SelectableCard({ label, selected, onSelect, roleType }: SelectableCardProps) {
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.98, opacity: 0.95 }}
+      transition={{ duration: 0.18, ease: 'easeOut' }}
+      onClick={onSelect}
+      role={roleType}
+      aria-checked={roleType === 'radio' ? selected : undefined}
+      aria-pressed={roleType === 'button' ? selected : undefined}
+      className={`w-full min-h-12 text-left px-4 py-3.5 rounded-2xl border text-[15px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
+        selected
+          ? 'border-text-primary bg-bg-surface text-text-primary font-medium'
+          : 'border-border bg-white text-text-primary hover:border-text-muted'
+      }`}
+    >
+      {label}
+    </motion.button>
+  );
+}
+
+type StickyActionBarProps = {
+  onContinue: () => void;
+  disabled: boolean;
+  isSubmitting: boolean;
+};
+
+function StickyActionBar({ onContinue, disabled, isSubmitting }: StickyActionBarProps) {
+  return (
+    <div className="sticky bottom-0 z-20 bg-bg-base/96 backdrop-blur-sm border-t border-border/70 px-6 pt-4 pb-7">
+      <button
+        onClick={onContinue}
+        disabled={disabled}
+        className="btn-primary w-full min-h-12 disabled:opacity-30 disabled:pointer-events-none"
+      >
+        {isSubmitting ? 'Setting up...' : 'Continue'}
+      </button>
+    </div>
+  );
+}
+
 export default function Onboarding() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const shouldReduceMotion = useReducedMotion();
+  const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState('');
   const [purpose, setPurpose] = useState('');
   const [experience, setExperience] = useState('');
@@ -58,20 +164,26 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { user, refreshProfile } = useAuth();
+  const purposeGroupId = useId();
+  const experienceGroupId = useId();
+  const interestsGroupId = useId();
 
   const toggleInterest = (label: string) => {
-    setInterests((prev) =>
-      prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]
-    );
+    setInterests((prev) => (prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]));
   };
 
   const canContinue = () => {
     switch (currentStep) {
-      case 1: return name.trim().length > 0;
-      case 2: return purpose !== '';
-      case 3: return experience !== '';
-      case 4: return interests.length > 0;
-      default: return true;
+      case 1:
+        return name.trim().length > 0;
+      case 2:
+        return purpose !== '';
+      case 3:
+        return experience !== '';
+      case 4:
+        return interests.length > 0;
+      default:
+        return true;
     }
   };
 
@@ -120,9 +232,15 @@ export default function Onboarding() {
     }
   };
 
+  const transition = shouldReduceMotion
+    ? { duration: 0 }
+    : { duration: 0.24, ease: 'easeOut' as const };
+
+  const enterX = shouldReduceMotion ? 0 : 20;
+  const exitX = shouldReduceMotion ? 0 : -20;
+
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto w-full">
-      {/* Loading overlay */}
+    <div className="min-h-screen flex flex-col max-w-md mx-auto w-full bg-bg-base">
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -130,259 +248,183 @@ export default function Onboarding() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white"
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bg-base"
           >
             <motion.div
-              animate={{ scale: [1, 1.15, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-20 h-20 rounded-full bg-bg-surface border border-border mb-8 flex items-center justify-center"
+              animate={shouldReduceMotion ? undefined : { scale: [1, 1.06, 1] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              className="w-20 h-20 rounded-full bg-bg-surface border border-border mb-6 flex items-center justify-center"
             >
               <BookOpen size={32} className="text-text-primary" />
             </motion.div>
-            <p className="text-[17px] text-text-secondary font-medium">
-              Creating your personalised plan...
-            </p>
+            <p className="text-[17px] text-text-secondary font-medium">Creating your personalised plan...</p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Header — steps 1+ only */}
       {currentStep > 0 && (
-        <div className="px-6 pt-6 pb-2">
-          {/* Back button */}
-          <button
-            onClick={() => setCurrentStep((s) => s - 1)}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-text-primary hover:bg-bg-hover transition-colors mb-4"
-          >
-            <ArrowLeft size={20} />
-          </button>
-
-          {/* Progress bar */}
-          <div className="flex gap-1.5">
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-              <div
-                key={i}
-                className={`h-[3px] flex-1 rounded-full transition-colors duration-300 ${
-                  i < currentStep ? 'bg-gold' : 'bg-border'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
+        <OnboardingHeader
+          currentStep={currentStep}
+          onBack={() => setCurrentStep((s) => Math.max(1, s - 1))}
+          onSkip={() => setCurrentStep((s) => s + 1)}
+          canGoBack={currentStep > 1}
+        />
       )}
 
-      <div className="flex-1 flex flex-col px-6">
-        <AnimatePresence mode="wait">
-          {/* Step 0 — Welcome */}
-          {currentStep === 0 && (
-            <motion.div
-              key="welcome"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.3 }}
-              className="flex-1 flex flex-col items-center justify-center text-center"
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, ease: 'easeOut' }}
-                className="w-28 h-28 rounded-full bg-bg-surface border border-border mb-10 flex items-center justify-center"
-              >
-                <BookOpen size={44} className="text-text-primary" />
-              </motion.div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 }}
-                className="text-[44px] font-bold tracking-tighter text-text-primary mb-2"
-              >
-                Verse
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
-                className="text-[16px] text-text-secondary mb-16"
-              >
-                Your personal Bible companion
-              </motion.p>
-
-              <motion.button
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.6 }}
-                onClick={() => setCurrentStep(1)}
-                className="btn-primary w-full"
-              >
-                Get Started
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Step 1 — Name */}
+      <main className="flex-1 overflow-y-auto">
+        <AnimatePresence mode="wait" initial={false}>
           {currentStep === 1 && (
-            <motion.div
+            <motion.section
               key="name"
-              initial={{ opacity: 0, x: 40 }}
+              initial={{ opacity: 0, x: enterX }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="pt-8"
+              exit={{ opacity: 0, x: exitX }}
+              transition={transition}
+              className="px-6 pt-8 pb-28"
             >
-              <h1 className="text-[28px] font-bold tracking-tighter text-text-primary mb-2">
-                What should we call you?
-              </h1>
-              <p className="text-[15px] text-text-secondary mb-8">
-                This is how you'll appear in the app.
-              </p>
+              <h1 className="text-[31px] leading-tight font-bold tracking-tighter text-text-primary mb-2">What should we call you?</h1>
+              <p className="text-[15px] text-text-secondary mb-8">This is how you'll appear in the app.</p>
 
-              <input
-                type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) handleContinue(); }}
-                className="w-full bg-bg-surface border border-border rounded-2xl px-5 py-4 text-[17px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-primary transition-colors"
-                autoFocus
-              />
-            </motion.div>
+              <div className="bg-bg-surface border border-border rounded-2xl p-4">
+                <label htmlFor="onboarding-name" className="text-[13px] font-medium text-text-secondary block mb-2">
+                  Your name
+                </label>
+                <input
+                  id="onboarding-name"
+                  type="text"
+                  placeholder="Enter your name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && name.trim()) handleContinue();
+                  }}
+                  className="w-full min-h-12 bg-white border border-border rounded-xl px-4 py-3 text-[17px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-text-primary"
+                  autoFocus
+                  aria-describedby="name-help"
+                />
+                <p id="name-help" className="text-[12px] text-text-muted mt-2">
+                  We use this to personalise your reading journey.
+                </p>
+              </div>
+            </motion.section>
           )}
 
-          {/* Step 2 — Purpose */}
           {currentStep === 2 && (
-            <motion.div
+            <motion.section
               key="purpose"
-              initial={{ opacity: 0, x: 40 }}
+              initial={{ opacity: 0, x: enterX }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="pt-8"
+              exit={{ opacity: 0, x: exitX }}
+              transition={transition}
+              className="px-6 pt-8 pb-28"
             >
-              <h1 className="text-[28px] font-bold tracking-tighter text-text-primary mb-2">
-                What brings you here?
-              </h1>
-              <p className="text-[15px] text-text-secondary mb-8">
-                We'll tailor your experience based on this.
-              </p>
+              <h1 className="text-[31px] leading-tight font-bold tracking-tighter text-text-primary mb-2">What brings you here?</h1>
+              <p className="text-[15px] text-text-secondary mb-8">We'll tailor your experience based on this.</p>
 
-              <div className="space-y-3">
+              <div role="radiogroup" aria-labelledby={purposeGroupId} className="space-y-3">
+                <p id={purposeGroupId} className="sr-only">
+                  Select one reason you joined
+                </p>
                 {PURPOSE_OPTIONS.map((option) => (
-                  <button
+                  <SelectableCard
                     key={option}
-                    onClick={() => setPurpose(option)}
-                    className={`w-full text-left px-5 py-4 rounded-2xl border-2 text-[15px] transition-all ${
-                      purpose === option
-                        ? 'border-text-primary bg-bg-surface font-medium'
-                        : 'border-border bg-white hover:border-text-muted'
-                    }`}
-                  >
-                    {option}
-                  </button>
+                    label={option}
+                    selected={purpose === option}
+                    onSelect={() => setPurpose(option)}
+                    roleType="radio"
+                  />
                 ))}
               </div>
-            </motion.div>
+            </motion.section>
           )}
 
-          {/* Step 3 — Experience */}
           {currentStep === 3 && (
-            <motion.div
+            <motion.section
               key="experience"
-              initial={{ opacity: 0, x: 40 }}
+              initial={{ opacity: 0, x: enterX }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="pt-8"
+              exit={{ opacity: 0, x: exitX }}
+              transition={transition}
+              className="px-6 pt-8 pb-28"
             >
-              <h1 className="text-[28px] font-bold tracking-tighter text-text-primary mb-2">
+              <h1 className="text-[31px] leading-tight font-bold tracking-tighter text-text-primary mb-2">
                 How familiar are you with the Bible?
               </h1>
-              <p className="text-[15px] text-text-secondary mb-8">
-                No wrong answer here — we meet you where you are.
-              </p>
+              <p className="text-[15px] text-text-secondary mb-8">No wrong answer here — we meet you where you are.</p>
 
-              <div className="space-y-3">
+              <div role="radiogroup" aria-labelledby={experienceGroupId} className="space-y-3">
+                <p id={experienceGroupId} className="sr-only">
+                  Select your Bible familiarity level
+                </p>
                 {EXPERIENCE_OPTIONS.map((option) => (
-                  <button
+                  <SelectableCard
                     key={option}
-                    onClick={() => setExperience(option)}
-                    className={`w-full text-left px-5 py-4 rounded-2xl border-2 text-[15px] transition-all ${
-                      experience === option
-                        ? 'border-text-primary bg-bg-surface font-medium'
-                        : 'border-border bg-white hover:border-text-muted'
-                    }`}
-                  >
-                    {option}
-                  </button>
+                    label={option}
+                    selected={experience === option}
+                    onSelect={() => setExperience(option)}
+                    roleType="radio"
+                  />
                 ))}
               </div>
-            </motion.div>
+            </motion.section>
           )}
 
-          {/* Step 4 — Interests (multi-select chips) */}
           {currentStep === 4 && (
-            <motion.div
+            <motion.section
               key="interests"
-              initial={{ opacity: 0, x: 40 }}
+              initial={{ opacity: 0, x: enterX }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="pt-8"
+              exit={{ opacity: 0, x: exitX }}
+              transition={transition}
+              className="px-6 pt-8 pb-28"
             >
-              <h1 className="text-[28px] font-bold tracking-tighter text-text-primary mb-2">
-                What topics interest you?
-              </h1>
-              <p className="text-[15px] text-text-secondary mb-8">
-                Pick as many as you like. We'll build your plan around these.
-              </p>
+              <h1 className="text-[31px] leading-tight font-bold tracking-tighter text-text-primary mb-2">What topics interest you?</h1>
+              <p className="text-[15px] text-text-secondary mb-8">Pick as many as you like. We'll build your plan around these.</p>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" aria-labelledby={interestsGroupId}>
+                <p id={interestsGroupId} className="sr-only">
+                  Choose one or more interests
+                </p>
                 {INTEREST_OPTIONS.map((option) => {
                   const isSelected = interests.includes(option.label);
                   const Icon = option.icon;
                   return (
-                    <button
+                    <motion.button
                       key={option.label}
+                      type="button"
+                      whileTap={{ scale: 0.98, opacity: 0.95 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
                       onClick={() => toggleInterest(option.label)}
-                      className={`inline-flex items-center gap-2 px-5 py-3 rounded-full border-2 text-[14px] font-medium transition-all ${
+                      aria-pressed={isSelected}
+                      className={`min-h-14 rounded-2xl border px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-base ${
                         isSelected
-                          ? 'border-text-primary bg-text-primary text-text-inverse'
+                          ? 'border-text-primary bg-bg-surface text-text-primary'
                           : 'border-border bg-white text-text-primary hover:border-text-muted'
                       }`}
                     >
-                      <Icon size={16} />
-                      {option.label}
-                    </button>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-text-primary bg-text-primary text-text-inverse' : 'border-border text-text-secondary'
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {isSelected ? <Check size={16} /> : <Icon size={16} />}
+                        </span>
+                      </div>
+                      <span className="text-[14px] font-medium leading-tight">{option.label}</span>
+                    </motion.button>
                   );
                 })}
               </div>
-            </motion.div>
+            </motion.section>
           )}
         </AnimatePresence>
-      </div>
+      </main>
 
-      {/* Bottom — Continue button for steps 1-4 */}
       {currentStep > 0 && (
-        <div className="px-6 pb-8 pt-4 space-y-3">
-          <button
-            onClick={handleContinue}
-            disabled={!canContinue() || submitting}
-            className="btn-primary w-full disabled:opacity-30 disabled:pointer-events-none"
-          >
-            {submitting ? 'Setting up...' : 'Continue'}
-          </button>
-          {currentStep < TOTAL_STEPS && (
-            <button
-              onClick={() => setCurrentStep((s) => s + 1)}
-              className="w-full text-center text-[14px] text-text-muted hover:text-text-primary py-2 transition-colors"
-            >
-              Skip
-            </button>
-          )}
-        </div>
+        <StickyActionBar onContinue={handleContinue} disabled={!canContinue() || submitting} isSubmitting={submitting} />
       )}
     </div>
   );

@@ -15,11 +15,53 @@ import Journal from '@/features/journal/pages/Journal';
 import Notes from '@/features/notes/pages/Notes';
 import NoteDetail from '@/features/notes/pages/NoteDetail';
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+const AuthLoading = () => (
+  <div className="min-h-screen flex items-center justify-center">Loading...</div>
+);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+const RootRedirect = () => {
+  const { user, loading, profileLoading, profile } = useAuth();
+
+  if (loading || profileLoading) return <AuthLoading />;
   if (!user) return <Navigate to="/login" replace />;
+
+  return <Navigate to={profile?.onboarding_complete ? '/home' : '/onboarding'} replace />;
+};
+
+const PublicOnlyRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, profileLoading, profile } = useAuth();
+
+  if (loading || profileLoading) return <AuthLoading />;
+  if (!user) return <>{children}</>;
+
+  return <Navigate to={profile?.onboarding_complete ? '/home' : '/onboarding'} replace />;
+};
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, profileLoading } = useAuth();
+
+  if (loading || profileLoading) return <AuthLoading />;
+  if (!user) return <Navigate to="/login" replace />;
+
+  return <>{children}</>;
+};
+
+const OnboardingRequiredRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, profileLoading, profile } = useAuth();
+
+  if (loading || profileLoading) return <AuthLoading />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (!profile?.onboarding_complete) return <Navigate to="/onboarding" replace />;
+
+  return <>{children}</>;
+};
+
+const OnboardingRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, profileLoading, profile } = useAuth();
+
+  if (loading || profileLoading) return <AuthLoading />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (profile?.onboarding_complete) return <Navigate to="/home" replace />;
 
   return <>{children}</>;
 };
@@ -30,20 +72,20 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location}>
-        <Route path="/" element={<Navigate to="/home" replace />} />
-        <Route path="/login" element={<PageTransition><Login /></PageTransition>} />
-        <Route path="/signup" element={<PageTransition><Signup /></PageTransition>} />
+        <Route path="/" element={<RootRedirect />} />
+        <Route path="/login" element={<PublicOnlyRoute><PageTransition><Login /></PageTransition></PublicOnlyRoute>} />
+        <Route path="/signup" element={<PublicOnlyRoute><PageTransition><Signup /></PageTransition></PublicOnlyRoute>} />
 
-        <Route path="/onboarding" element={<ProtectedRoute><PageTransition><Onboarding /></PageTransition></ProtectedRoute>} />
+        <Route path="/onboarding" element={<OnboardingRoute><PageTransition><Onboarding /></PageTransition></OnboardingRoute>} />
         <Route path="/onboarding/result" element={<ProtectedRoute><PageTransition><OnboardingResult /></PageTransition></ProtectedRoute>} />
 
-        <Route path="/home" element={<ProtectedRoute><PageTransition><Home /></PageTransition></ProtectedRoute>} />
-        <Route path="/bible" element={<ProtectedRoute><PageTransition><Bible /></PageTransition></ProtectedRoute>} />
-        <Route path="/bible/:book/:chapter" element={<ProtectedRoute><PageTransition><Bible /></PageTransition></ProtectedRoute>} />
-        <Route path="/journal" element={<ProtectedRoute><PageTransition><Journal /></PageTransition></ProtectedRoute>} />
-        <Route path="/journal/:id" element={<ProtectedRoute><PageTransition><Journal /></PageTransition></ProtectedRoute>} />
-        <Route path="/notes" element={<ProtectedRoute><PageTransition><Notes /></PageTransition></ProtectedRoute>} />
-        <Route path="/notes/:id" element={<ProtectedRoute><PageTransition><NoteDetail /></PageTransition></ProtectedRoute>} />
+        <Route path="/home" element={<OnboardingRequiredRoute><PageTransition><Home /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/bible" element={<OnboardingRequiredRoute><PageTransition><Bible /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/bible/:book/:chapter" element={<OnboardingRequiredRoute><PageTransition><Bible /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/journal" element={<OnboardingRequiredRoute><PageTransition><Journal /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/journal/:id" element={<OnboardingRequiredRoute><PageTransition><Journal /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/notes" element={<OnboardingRequiredRoute><PageTransition><Notes /></PageTransition></OnboardingRequiredRoute>} />
+        <Route path="/notes/:id" element={<OnboardingRequiredRoute><PageTransition><NoteDetail /></PageTransition></OnboardingRequiredRoute>} />
       </Routes>
     </AnimatePresence>
   );
