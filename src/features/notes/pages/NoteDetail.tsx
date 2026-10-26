@@ -1,11 +1,13 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Trash2, Send, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
-import { useTranslation } from '@/app/providers/TranslationContext';
+import { useAuth } from '@/providers/AuthContext';
+import { useTranslation } from '@/providers/TranslationContext';
 import { fetchPassage } from '@/shared/services/bibleApi';
 import { SkeletonCard, SkeletonLine } from '@/shared/components/Skeleton';
 
@@ -36,7 +38,7 @@ interface Thought {
 
 export default function NoteDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, profile } = useAuth();
   const { translation } = useTranslation();
 
@@ -241,7 +243,7 @@ export default function NoteDetail() {
         <p className="text-[14px] text-text-secondary mb-6">
           This note may have been deleted.
         </p>
-        <button onClick={() => navigate('/notes')} className="btn-primary">
+        <button onClick={() => router.push('/notes')} className="btn-primary">
           Back to Notes
         </button>
       </div>
@@ -253,7 +255,7 @@ export default function NoteDetail() {
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-bg-base/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center gap-3">
         <button
-          onClick={() => navigate('/notes')}
+          onClick={() => router.push('/notes')}
           className="p-1 -ml-1 text-text-primary hover:text-gold transition-colors"
         >
           <ArrowLeft size={22} />
@@ -280,7 +282,7 @@ export default function NoteDetail() {
               )}
               <button
                 onClick={() =>
-                  navigate(
+                  router.push(
                     `/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`
                   )
                 }

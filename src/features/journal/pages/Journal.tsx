@@ -1,24 +1,26 @@
+'use client';
+
 import { useState, useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Mic, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
+import { useAuth } from '@/providers/AuthContext';
 import { KJV_PASSAGES } from '@/shared/lib/data';
 import BottomNav from '@/shared/components/BottomNav';
 import { useScrollDirection } from '@/shared/hooks/useScrollDirection';
 import { useSpeechToText } from '@/shared/hooks/useSpeechToText';
 import { applyTranscriptToJournalFields, appendTranscriptToField } from '@/shared/lib/journalVoice';
 import { useAudioRecorder } from '@/shared/hooks/useAudioRecorder';
-import { transcribeJournalAudioWithGemini } from '@/shared/services/gemini';
+import { isGeminiEnabled, transcribeJournalAudioWithGemini } from '@/shared/services/gemini';
 
 type Framework = 'HEAR' | 'SOAP' | 'Free Write';
 type RecordingTarget = 'all' | 'f1' | 'f2' | 'f3' | 'f4';
 
 export default function Journal() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const scrollDirection = useScrollDirection();
-  const { id } = useParams(); // If editing an existing journal
+  const { id } = useParams<{ id?: string }>(); // If editing an existing journal
 
   const [framework, setFramework] = useState<Framework>('HEAR');
   const [fields, setFields] = useState({ f1: '', f2: '', f3: '', f4: '' });
@@ -39,7 +41,7 @@ export default function Journal() {
   const recordingStartRef = useRef<number | null>(null);
   const { isListening, isSupported: isSpeechSupported, error: speechError, clearError: clearSpeechError, startListening, stopListening } = useSpeechToText();
   const { isRecording: isAudioRecording, isSupported: isAudioRecordingSupported, error: audioError, clearError: clearAudioError, startRecording, stopRecording } = useAudioRecorder();
-  const hasGeminiApi = Boolean(import.meta.env.VITE_GEMINI_API_KEY);
+  const hasGeminiApi = isGeminiEnabled;
   const canUseGeminiVoice = hasGeminiApi && isAudioRecordingSupported;
   const isVoiceSupported = canUseGeminiVoice || isSpeechSupported;
   const isVoiceActive = isVoiceStarting || isListening || isAudioRecording || isTranscribing;
@@ -87,7 +89,7 @@ export default function Journal() {
       setShowToast(true);
       setTimeout(() => {
         setShowToast(false);
-        navigate('/notes');
+        router.push('/notes');
       }, 2000);
 
     } catch (err) {
@@ -451,7 +453,7 @@ export default function Journal() {
     <div className="min-h-screen bg-bg-base flex flex-col pb-[80px]">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-bg-base/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-text-primary" aria-label="Go back">
+        <button onClick={() => router.back()} className="p-2 -ml-2 text-text-primary" aria-label="Go back">
           <ArrowLeft size={24} />
         </button>
         <h1 className="font-bold tracking-tighter text-[20px] text-text-primary">Journal Entry</h1>

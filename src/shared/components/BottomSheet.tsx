@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'motion/react';
 import { useLockBodyScroll } from '@/shared/hooks/useLockBodyScroll';

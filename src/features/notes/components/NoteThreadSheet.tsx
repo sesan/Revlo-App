@@ -1,11 +1,13 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Trash2, Send, BookOpen, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
-import { useTranslation } from '@/app/providers/TranslationContext';
+import { useAuth } from '@/providers/AuthContext';
+import { useTranslation } from '@/providers/TranslationContext';
 import { fetchPassage } from '@/shared/services/bibleApi';
 import { SkeletonCard, SkeletonLine } from '@/shared/components/Skeleton';
 import BottomSheet from '@/shared/components/BottomSheet';
@@ -42,7 +44,7 @@ interface NoteThreadSheetProps {
 }
 
 export default function NoteThreadSheet({ noteId, isOpen, onClose }: NoteThreadSheetProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, profile } = useAuth();
   const { translation } = useTranslation();
 
@@ -187,7 +189,7 @@ export default function NoteThreadSheet({ noteId, isOpen, onClose }: NoteThreadS
   const handleOpenInBible = () => {
     if (!note?.book || !note?.chapter) return;
     onClose();
-    navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
+    router.push(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
   };
 
   const allThoughts: Thought[] = note

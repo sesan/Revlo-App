@@ -1,6 +1,8 @@
+'use client';
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { TRANSLATIONS, Translation, getTranslation } from '@/shared/lib/translations';
-import { useAuth } from '@/app/providers/AuthContext';
+import { useAuth } from '@/providers/AuthContext';
 import { supabase } from '@/shared/services/supabase';
 
 type TranslationContextType = {
@@ -18,11 +20,15 @@ const TranslationContext = createContext<TranslationContextType>({
 });
 
 export const TranslationProvider = ({ children }: { children: React.ReactNode }) => {
-  const [translation, setTranslationState] = useState<string>(() => {
-    // Initialize from localStorage
+  const [translation, setTranslationState] = useState<string>('web');
+  const [hydrated, setHydrated] = useState(false);
+
+  // localStorage is only available in the browser, so read it after mount.
+  useEffect(() => {
     const stored = localStorage.getItem('bible-translation');
-    return stored || 'web';
-  });
+    if (stored) setTranslationState(stored);
+    setHydrated(true);
+  }, []);
 
   const { user } = useAuth();
 
@@ -48,12 +54,12 @@ export const TranslationProvider = ({ children }: { children: React.ReactNode })
 
   // Sync to localStorage whenever translation changes
   useEffect(() => {
-    localStorage.setItem('bible-translation', translation);
-  }, [translation]);
+    if (hydrated) localStorage.setItem('bible-translation', translation);
+  }, [translation, hydrated]);
 
   // Sync to Supabase when user is authenticated (debounced)
   useEffect(() => {
-    if (!user?.id) return;
+    if (!hydrated || !user?.id) return;
 
     const timer = setTimeout(async () => {
       try {
@@ -82,7 +88,7 @@ export const TranslationProvider = ({ children }: { children: React.ReactNode })
     }, 1000); // Wait 1 second before syncing to avoid multiple requests
 
     return () => clearTimeout(timer);
-  }, [translation, user?.id]);
+  }, [translation, user?.id, hydrated]);
 
   const setTranslation = (code: string) => {
     setTranslationState(code);

@@ -1,5 +1,8 @@
+'use client';
+
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { ONBOARDING_PLAN_KEY } from '@/features/onboarding/lib/planStorage';
 import { motion, useReducedMotion } from 'motion/react';
 import { CheckCircle2, BookOpen } from 'lucide-react';
 import type { PersonalizedPlan } from '@/shared/services/gemini';
@@ -17,12 +20,16 @@ function parsePassageRoute(passage: string): string {
 
 export default function OnboardingResult() {
   const shouldReduceMotion = useReducedMotion();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const router = useRouter();
   const [plan, setPlan] = useState({ name: '', description: '', day1: '', welcomeMessage: '' });
 
   useEffect(() => {
-    const aiPlan = location.state?.plan as PersonalizedPlan | undefined;
+    let aiPlan: PersonalizedPlan | undefined;
+    try {
+      aiPlan = JSON.parse(sessionStorage.getItem(ONBOARDING_PLAN_KEY) || 'null') ?? undefined;
+    } catch {
+      aiPlan = undefined;
+    }
 
     if (aiPlan?.planName) {
       setPlan({
@@ -34,55 +41,17 @@ export default function OnboardingResult() {
       return;
     }
 
-    const topic = location.state?.topic || 'Who is Jesus?';
-
-    if (topic === 'How do I pray?') {
-      setPlan({
-        name: 'Learning to Talk to God',
-        description: '7 days of scripture and reflection to build a real prayer life.',
-        day1: 'Matthew 6:5-15',
-        welcomeMessage: '',
-      });
-    } else if (topic === 'Finding peace and comfort') {
-      setPlan({
-        name: 'Held by Peace',
-        description: '7 passages for when life feels overwhelming. You are not alone.',
-        day1: 'Psalm 23',
-        welcomeMessage: '',
-      });
-    } else if (topic === "Understanding God's purpose for my life") {
-      setPlan({
-        name: 'Made with Purpose',
-        description: 'Explore who God says you are and why you are here.',
-        day1: 'Jeremiah 29:11-14',
-        welcomeMessage: '',
-      });
-    } else if (topic === 'Love, relationships, and family') {
-      setPlan({
-        name: 'Love as Scripture Defines It',
-        description: '7 days exploring what the Bible says about love, commitment, and family.',
-        day1: '1 Corinthians 13',
-        welcomeMessage: '',
-      });
-    } else if (topic === 'Overcoming fear and anxiety') {
-      setPlan({
-        name: 'Fear Not',
-        description: '7 powerful scriptures for anxiety, fear, and uncertainty.',
-        day1: 'Isaiah 41:10',
-        welcomeMessage: '',
-      });
-    } else {
-      setPlan({
-        name: 'The Story of Jesus',
-        description: 'A 7-day journey through the life, words, and resurrection of Jesus Christ.',
-        day1: 'John 1:1-18',
-        welcomeMessage: '',
-      });
-    }
-  }, [location.state]);
+    // No generated plan in session (e.g. page refreshed): show the default plan.
+    setPlan({
+      name: 'The Story of Jesus',
+      description: 'A 7-day journey through the life, words, and resurrection of Jesus Christ.',
+      day1: 'John 1:1-18',
+      welcomeMessage: '',
+    });
+  }, []);
 
   const handleStartReading = () => {
-    navigate(parsePassageRoute(plan.day1));
+    router.push(parsePassageRoute(plan.day1));
   };
 
   const transition = shouldReduceMotion
@@ -153,7 +122,7 @@ export default function OnboardingResult() {
         </motion.button>
 
         <button
-          onClick={() => navigate('/home')}
+          onClick={() => router.push('/home')}
           className="w-full min-h-11 text-[15px] text-text-secondary hover:text-text-primary transition-colors"
         >
           Go to my dashboard

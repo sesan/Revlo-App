@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'motion/react';
 import { supabase, isSupabaseConfigured } from '@/shared/services/supabase';
 import { Eye, EyeOff } from 'lucide-react';
@@ -42,7 +45,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +75,7 @@ export default function Login() {
       if (error) throw error;
       
       // Route guards decide between onboarding and home based on profile state
-      navigate('/');
+      router.push('/');
     } catch (err: any) {
       if (err.message === 'Failed to fetch') {
         setError('Failed to connect to database. Please configure Supabase URL and Key.');
@@ -201,7 +204,7 @@ export default function Login() {
         <div className="mt-6 text-center space-y-4">
           <p className="text-[13px] text-text-muted">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-gold hover:underline">
+            <Link href="/signup" className="text-gold hover:underline">
               Sign up
             </Link>
           </p>

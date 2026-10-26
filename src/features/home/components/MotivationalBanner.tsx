@@ -1,7 +1,9 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { MotivationalMessage } from '@/features/home/lib/motivationalMessages';
 import { format } from 'date-fns';
 
@@ -11,7 +13,7 @@ interface MotivationalBannerProps {
 
 export default function MotivationalBanner({ message }: MotivationalBannerProps) {
   const [isDismissed, setIsDismissed] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     // Check if banner was dismissed today
@@ -31,7 +33,7 @@ export default function MotivationalBanner({ message }: MotivationalBannerProps)
 
   const handleAction = () => {
     if (message.actionPath) {
-      navigate(message.actionPath);
+      router.push(message.actionPath);
     }
   };
 

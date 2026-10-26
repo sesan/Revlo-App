@@ -1,9 +1,11 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Search, BookOpen, Plus, Trash2, MessageSquare } from 'lucide-react';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
-import { useTranslation } from '@/app/providers/TranslationContext';
+import { useAuth } from '@/providers/AuthContext';
+import { useTranslation } from '@/providers/TranslationContext';
 import BottomNav from '@/shared/components/BottomNav';
 import { SkeletonCard } from '@/shared/components/Skeleton';
 import { useScrollDirection } from '@/shared/hooks/useScrollDirection';
@@ -12,7 +14,7 @@ import { format } from 'date-fns';
 type FilterType = 'All' | 'Highlights' | 'Notes' | 'Journal' | 'Voice' | 'Bookmarks';
 
 export default function Notes() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const { translation } = useTranslation();
   const scrollDirection = useScrollDirection();
@@ -316,10 +318,10 @@ export default function Notes() {
                   onClick={() => {
                     if (note.type === 'highlight') {
                       if (note.book && note.chapter) {
-                        navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
+                        router.push(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
                       }
                     } else {
-                      navigate(`/notes/${note.id}`);
+                      router.push(`/notes/${note.id}`);
                     }
                   }}
                   className="bg-bg-surface border border-border rounded-2xl p-4 cursor-pointer hover:bg-bg-hover transition-colors"
@@ -352,7 +354,7 @@ export default function Notes() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
+                        router.push(`/bible/${note.book}/${note.chapter}${note.verse ? `?verse=${note.verse}` : ''}`);
                       }}
                       className="text-[12px] text-gold font-medium mb-2 hover:underline"
                     >
@@ -424,7 +426,7 @@ export default function Notes() {
               Everything you highlight, write, or record will live here — searchable, forever.
             </p>
             <button 
-              onClick={() => navigate('/bible')}
+              onClick={() => router.push('/bible')}
               className="btn-primary"
             >
               Start Reading →

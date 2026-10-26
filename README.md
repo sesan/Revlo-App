@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Verse
 
-# Run and deploy your AI Studio app
+A Bible study app built with Next.js (App Router), TypeScript, Tailwind CSS v4 and Supabase.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/b31e2876-5a73-4792-bab5-b55b7bef4c82
+**Prerequisites:** Node.js 20+
 
-## Run Locally
+1. Install dependencies: `npm install`
+2. Copy `.env.example` to `.env.local` and fill in:
+   - `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `GEMINI_API_KEY` (optional, server-only; without it onboarding uses built-in plans and voice journaling falls back to browser speech-to-text)
+3. Run the dev server: `npm run dev` (http://localhost:3000)
 
-**Prerequisites:**  Node.js
+## Scripts
 
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | Type-check with TypeScript |
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Database
+
+See [supabase/README.md](supabase/README.md) for the migration order.

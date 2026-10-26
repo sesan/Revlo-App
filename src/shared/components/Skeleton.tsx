@@ -1,3 +1,5 @@
+'use client';
+
 export function SkeletonLine({ width = '100%', height = '14px' }: { width?: string; height?: string }) {
   return (
     <div
