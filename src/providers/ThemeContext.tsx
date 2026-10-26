@@ -1,3 +1,5 @@
+'use client';
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type FontStyle = 'sans' | 'serif';
@@ -13,14 +15,18 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [fontStyle, setFontStyle] = useState<FontStyle>(() => {
-    const stored = localStorage.getItem('verse-font');
-    return stored === 'serif' ? 'serif' : 'sans';
-  });
+  const [fontStyle, setFontStyle] = useState<FontStyle>('sans');
+  const [hydrated, setHydrated] = useState(false);
+
+  // localStorage is only available in the browser, so read it after mount.
+  useEffect(() => {
+    if (localStorage.getItem('verse-font') === 'serif') setFontStyle('serif');
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('verse-font', fontStyle);
-  }, [fontStyle]);
+    if (hydrated) localStorage.setItem('verse-font', fontStyle);
+  }, [fontStyle, hydrated]);
 
   const toggleFontStyle = () => setFontStyle(f => f === 'sans' ? 'serif' : 'sans');
 

@@ -1,10 +1,12 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Type, Mic, PenTool, ClipboardList, Search, Bookmark, X, BookOpen, ChevronLeft, ChevronRight, ChevronDown, Copy, CheckCircle2, Trash2, Plus, MessageSquare, Check } from 'lucide-react';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
-import { useTheme } from '@/app/providers/ThemeContext';
-import { useTranslation } from '@/app/providers/TranslationContext';
+import { useAuth } from '@/providers/AuthContext';
+import { useTheme } from '@/providers/ThemeContext';
+import { useTranslation } from '@/providers/TranslationContext';
 import { fetchPassage as fetchBiblePassage } from '@/shared/services/bibleApi';
 import BottomNav from '@/shared/components/BottomNav';
 import { SkeletonVerse } from '@/shared/components/Skeleton';
@@ -52,8 +54,10 @@ interface Passage {
 }
 
 export default function Bible() {
-  const { book = 'John', chapter = '3' } = useParams();
-  const navigate = useNavigate();
+  const params = useParams<{ book?: string; chapter?: string }>();
+  const book = params.book ? decodeURIComponent(params.book) : 'John';
+  const chapter = params.chapter ?? '3';
+  const router = useRouter();
   const { user } = useAuth();
   const { fontStyle, toggleFontStyle } = useTheme();
   const { translation, translationName, setTranslation, availableTranslations } = useTranslation();
@@ -70,7 +74,7 @@ export default function Bible() {
 
   const [selectedWords, setSelectedWords] = useState<{verseId: string, wordIndex: number}[]>([]);
   const [popupPos, setPopupPos] = useState({ x: 0, y: 0, bottomY: 0 });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 640);
   const [isTouchPointer, setIsTouchPointer] = useState(
     typeof window !== 'undefined' ? window.matchMedia('(pointer: coarse)').matches : false
   );
@@ -753,14 +757,14 @@ export default function Bible() {
     if (!currentPassage) return;
     const prevChap = parseInt(currentPassage.chapter) - 1;
     if (prevChap > 0) {
-      navigate(`/bible/${currentPassage.book}/${prevChap}`);
+      router.push(`/bible/${currentPassage.book}/${prevChap}`);
     }
   };
 
   const handleNextChapter = () => {
     if (!currentPassage) return;
     const nextChap = parseInt(currentPassage.chapter) + 1;
-    navigate(`/bible/${currentPassage.book}/${nextChap}`);
+    router.push(`/bible/${currentPassage.book}/${nextChap}`);
   };
 
   const getSelectedVerses = () => {
@@ -782,7 +786,7 @@ export default function Bible() {
     <div className="min-h-screen bg-bg-base flex flex-col relative pb-[120px]">
       {/* Top Bar */}
       <div className="sticky top-0 z-40 bg-bg-base/90 backdrop-blur-md border-b border-border px-4 h-14 flex items-center justify-between">
-        <button onClick={() => navigate('/home')} className="p-2 -ml-2 text-text-primary" aria-label="Go to home">
+        <button onClick={() => router.push('/home')} className="p-2 -ml-2 text-text-primary" aria-label="Go to home">
           <ArrowLeft size={24} />
         </button>
 
@@ -1063,7 +1067,7 @@ export default function Bible() {
                 <button
                   key={chapter}
                   onClick={() => {
-                    navigate(`/bible/${selectorBook.name}/${chapter}`);
+                    router.push(`/bible/${selectorBook.name}/${chapter}`);
                     setShowSelector(false);
                     setSelectorBook(null);
                   }}

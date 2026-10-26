@@ -1,16 +1,14 @@
 # Verse - Bible Study App
 
 ## **Project Overview**
-**Verse** is a next-generation Bible study app built as a React web application. It's designed to provide an immersive, personalized Bible reading and study experience with journaling, note-taking, and highlighting capabilities.
+**Verse** is a next-generation Bible study app built as a Next.js (App Router) web application. It's designed to provide an immersive, personalized Bible reading and study experience with journaling, note-taking, and highlighting capabilities.
 
 ---
 
 ## **Tech Stack**
 
 ### Frontend
-- **React 19** with TypeScript
-- **React Router** for navigation
-- **Vite** as build tool
+- **Next.js 16** (App Router) with **React 19** and TypeScript
 - **Tailwind CSS v4** for styling
 - **Lucide React** for icons
 - **Motion** (Framer Motion) for animations
@@ -21,8 +19,7 @@
   - Authentication (user management)
   - PostgreSQL database
   - Row-Level Security (RLS) policies
-- **Google Gemini AI** for AI-powered features
-- **Better-SQLite3** for local data
+- **Google Gemini AI** for AI-powered features, called only from server route handlers (`src/app/api/*`) so the API key never reaches the browser
 
 ---
 
@@ -30,32 +27,33 @@
 
 ```
 src/
-├── App.tsx              # Main app with routing & auth guards
-├── main.tsx             # Entry point
-├── index.css            # Global styles & theme
-├── components/
-│   ├── BottomNav.tsx        # Mobile navigation bar
-│   └── JournalSheet.tsx     # Journal entry interface
-├── hooks/
-│   └── useLockBodyScroll.ts # Prevent scroll on mobile modals
-├── lib/
-│   ├── AuthContext.tsx          # Authentication state management
-│   ├── TranslationContext.tsx   # Translation state management
-│   ├── ThemeContext.tsx         # Font style (serif/sans) management
-│   ├── translations.ts          # Translation definitions & metadata
-│   ├── bibleApi.ts              # Bible API abstraction layer
-│   ├── supabase.ts              # Supabase client configuration
-│   └── data.ts                  # Data utilities
-└── pages/
-    ├── Login.tsx            # Login screen
-    ├── Signup.tsx           # Registration screen
-    ├── Onboarding.tsx       # User onboarding flow
-    ├── OnboardingResult.tsx # Onboarding completion
-    ├── Home.tsx             # Dashboard/Home screen
-    ├── Bible.tsx            # Bible reading interface
-    ├── Journal.tsx          # Journal entries
-    └── Notes.tsx            # Notes management
+├── app/                      # Next.js App Router
+│   ├── layout.tsx            # Root layout (html/body, providers)
+│   ├── providers.tsx         # Client providers (Auth, Translation, Theme)
+│   ├── template.tsx          # Per-navigation page transition
+│   ├── globals.css           # Global styles & Tailwind theme
+│   ├── page.tsx              # "/" -> redirects to /login, /onboarding or /home
+│   ├── login/, signup/       # Public-only routes
+│   ├── onboarding/           # Onboarding + onboarding/result
+│   ├── home/, bible/[book]/[chapter]/, journal/[id]/, notes/[id]/
+│   └── api/
+│       ├── plan/route.ts            # POST: Gemini personalised reading plan
+│       └── journal-voice/route.ts   # POST: Gemini audio transcription
+├── features/                 # Feature modules (auth, onboarding, home, bible, journal, notes)
+│   └── <feature>/pages|components|lib
+├── providers/                # AuthContext, TranslationContext, ThemeContext
+├── server/
+│   └── gemini.ts             # Server-only Gemini logic (imports 'server-only')
+└── shared/
+    ├── components/           # BottomNav, BottomSheet, RouteGuards, PageTransition, Skeleton
+    ├── hooks/                # Audio recording, speech-to-text, scroll helpers
+    ├── lib/                  # translations, journalVoice, data, utils
+    └── services/             # supabase client, bibleApi, gemini (client fetch wrappers)
 ```
+
+Route files in `src/app/**/page.tsx` are thin: they wrap a feature page in a guard from
+`src/shared/components/RouteGuards.tsx`. Feature pages are client components (`'use client'`).
+Browser-only APIs (localStorage, window) must be read inside effects, not during render.
 
 ---
 
@@ -195,9 +193,9 @@ UPDATE profiles SET preferred_translation = 'web' WHERE preferred_translation IS
 ## **Translation System**
 
 ### Architecture:
-- **`src/lib/translations.ts`** - Translation definitions and metadata
-- **`src/lib/bibleApi.ts`** - API abstraction layer for fetching Bible passages
-- **`src/lib/TranslationContext.tsx`** - Global state management with localStorage + Supabase sync
+- **`src/shared/lib/translations.ts`** - Translation definitions and metadata
+- **`src/shared/services/bibleApi.ts`** - API abstraction layer for fetching Bible passages
+- **`src/providers/TranslationContext.tsx`** - Global state management with localStorage + Supabase sync
 
 ### Supported Translations:
 Currently uses **bible-api.com** for all translations (free, no API key required):
@@ -278,11 +276,11 @@ To add copyrighted translations (NIV, ESV, NASB), you'll need:
 ---
 
 ## **Environment Variables**
+Copy `.env.example` to `.env.local`:
 ```
-GEMINI_API_KEY          # For AI features
-APP_URL                 # Application URL
-VITE_SUPABASE_URL       # Supabase project URL
-VITE_SUPABASE_ANON_KEY  # Supabase public API key
+NEXT_PUBLIC_SUPABASE_URL       # Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY  # Supabase public API key
+GEMINI_API_KEY                 # Server-only, for AI features (optional)
 ```
 
 ---
@@ -290,29 +288,19 @@ VITE_SUPABASE_ANON_KEY  # Supabase public API key
 ## **Development Commands**
 ```bash
 npm install              # Install dependencies
-npm run dev             # Start dev server (port 3000)
-npm run build           # Build for production
-npm run preview         # Preview production build
-npm run lint            # Type check with TypeScript
-npm run clean           # Remove dist folder
+npm run dev              # Start dev server (port 3000)
+npm run build            # Build for production
+npm run start            # Serve the production build
+npm run lint             # Type check with TypeScript
+npm run clean            # Remove .next folder
 ```
 
 ## **Database Setup**
 
 ### Initial Setup:
 1. Create a new project in Supabase
-2. Run the schema from `supabase.sql` in the SQL Editor
-3. Run the translation migration from `migration-final.sql`
-4. Set up environment variables in `.env`:
-   ```
-   VITE_SUPABASE_URL=your_project_url
-   VITE_SUPABASE_ANON_KEY=your_anon_key
-   ```
-
-### Migration Files:
-- **`supabase.sql`** - Base schema with all tables and RLS policies
-- **`migration-final.sql`** - Translation support (adds translation columns)
-- **`migration.sql`** - Alternative migration (includes journal_entries table)
+2. Run the migrations in `supabase/migrations/` in order (see `supabase/README.md`)
+3. Set the environment variables in `.env.local`
 
 ---
 
@@ -337,4 +325,4 @@ Short summary of the change (imperative mood)
 
 ---
 
-This is a well-structured, modern Bible study application with a strong focus on user experience, personalization, and mobile-first design. The codebase follows React best practices with TypeScript, context-based state management, and clean component separation.
+This is a well-structured, modern Bible study application with a strong focus on user experience, personalization, and mobile-first design. The codebase follows Next.js and React best practices with TypeScript, context-based state management, and clean component separation.

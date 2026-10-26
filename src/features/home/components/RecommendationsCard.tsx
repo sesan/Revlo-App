@@ -1,5 +1,7 @@
+'use client';
+
 import { Sparkles } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { VerseRecommendation } from '@/features/home/lib/recommendations';
 import { SkeletonLine } from '@/shared/components/Skeleton';
 
@@ -9,7 +11,7 @@ interface RecommendationsCardProps {
 }
 
 export default function RecommendationsCard({ recommendations, loading }: RecommendationsCardProps) {
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (loading) {
     return (
@@ -36,7 +38,7 @@ export default function RecommendationsCard({ recommendations, loading }: Recomm
   }
 
   const handleVerseClick = (rec: VerseRecommendation) => {
-    navigate(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`);
+    router.push(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`);
   };
 
   return (

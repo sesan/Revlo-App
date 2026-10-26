@@ -1,8 +1,10 @@
+'use client';
+
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { BookOpen, PenTool, Search, LogOut, Flame, Calendar, ChevronRight } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
-import { useAuth } from '@/app/providers/AuthContext';
+import { useAuth } from '@/providers/AuthContext';
 import { supabase } from '@/shared/services/supabase';
 import BottomNav from '@/shared/components/BottomNav';
 import SetupChecklist from '@/features/home/components/SetupChecklist';
@@ -53,7 +55,7 @@ const VERSES_OF_THE_DAY = [
 
 export default function Home() {
   const { profile, user, refreshProfile } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
   const scrollDirection = useScrollDirection();
   const [recentNotes, setRecentNotes] = useState<any[]>([]);
   const [notesLoading, setNotesLoading] = useState(true);
@@ -284,7 +286,7 @@ export default function Home() {
       // First, check if profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, email')
         .eq('id', user?.id)
         .maybeSingle();
 
@@ -358,7 +360,7 @@ export default function Home() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    navigate('/login');
+    router.push('/login');
   };
 
   const getTypeColor = (type: string) => {
@@ -423,7 +425,7 @@ export default function Home() {
           </div>
 
           <button
-            onClick={() => navigate('/bible')}
+            onClick={() => router.push('/bible')}
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-white text-[#121212] px-5 py-2.5 text-[14px] font-semibold hover:bg-white/90 transition-colors"
           >
             Continue Reading <ChevronRight size={16} />
@@ -432,7 +434,7 @@ export default function Home() {
 
         {/* Verse of the Day */}
         <button
-          onClick={() => navigate(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
+          onClick={() => router.push(`/bible/${todayVerse.book}/${todayVerse.chapter}?verse=${todayVerse.verse}`)}
           className="w-full text-left rounded-2xl overflow-hidden relative bg-gradient-to-br from-[#1a3a3a] via-[#1e4040] to-[#0f2b2b] p-6 sm:p-8 hover:opacity-95 transition-opacity"
         >
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/60 mb-3 font-medium">
@@ -450,7 +452,7 @@ export default function Home() {
           <SetupChecklist
             profile={profile}
             user={user}
-            onNavigate={navigate}
+            onNavigate={(path) => router.push(path)}
             onNamePrompt={triggerNamePrompt}
           />
         </AnimatePresence>
@@ -461,7 +463,7 @@ export default function Home() {
           </div>
           <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
             <button
-              onClick={() => navigate('/bible')}
+              onClick={() => router.push('/bible')}
               className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
             >
               <BookOpen size={16} className="mb-2 text-gold" />
@@ -469,7 +471,7 @@ export default function Home() {
               <p className="text-[12px] text-text-secondary">Jump into your chapter.</p>
             </button>
             <button
-              onClick={() => navigate('/journal')}
+              onClick={() => router.push('/journal')}
               className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
             >
               <PenTool size={16} className="mb-2 text-gold" />
@@ -477,7 +479,7 @@ export default function Home() {
               <p className="text-[12px] text-text-secondary">Capture your reflection.</p>
             </button>
             <button
-              onClick={() => navigate('/notes')}
+              onClick={() => router.push('/notes')}
               className="min-w-[160px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
             >
               <Search size={16} className="mb-2 text-gold" />
@@ -493,7 +495,7 @@ export default function Home() {
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-[17px] font-bold tracking-tight text-text-primary">Recent Reflections</h3>
             <button
-              onClick={() => navigate('/notes')}
+              onClick={() => router.push('/notes')}
               className="text-[13px] text-gold hover:underline font-medium"
             >
               View all
@@ -548,7 +550,7 @@ export default function Home() {
               {recommendations.map((rec) => (
                 <button
                   key={rec.ref}
-                  onClick={() => navigate(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`)}
+                  onClick={() => router.push(`/bible/${rec.book}/${rec.chapter}?verse=${rec.verse}`)}
                   className="min-w-[240px] max-w-[260px] rounded-2xl border border-border bg-bg-surface p-4 text-left hover:border-gold transition-colors"
                 >
                   <p className="text-[12px] font-semibold text-gold mb-2">{rec.ref}</p>

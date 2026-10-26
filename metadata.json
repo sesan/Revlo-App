@@ -1,5 +1,0 @@
-{
-  "name": "Verse",
-  "description": "A next-generation Bible study app prototype.",
-  "requestFramePermissions": ["microphone"]
-}

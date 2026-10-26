@@ -1,5 +1,7 @@
+'use client';
+
 import { useId, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import {
   ArrowLeft,
@@ -13,8 +15,9 @@ import {
   Check,
 } from 'lucide-react';
 import { supabase } from '@/shared/services/supabase';
-import { useAuth } from '@/app/providers/AuthContext';
+import { useAuth } from '@/providers/AuthContext';
 import { generatePersonalizedPlan } from '@/shared/services/gemini';
+import { ONBOARDING_PLAN_KEY } from '@/features/onboarding/lib/planStorage';
 
 const PURPOSE_OPTIONS = [
   "I'm exploring who Jesus is",
@@ -162,7 +165,7 @@ export default function Onboarding() {
   const [interests, setInterests] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, refreshProfile } = useAuth();
   const purposeGroupId = useId();
   const experienceGroupId = useId();
@@ -223,7 +226,8 @@ export default function Onboarding() {
         .eq('id', user.id);
 
       await refreshProfile();
-      navigate('/onboarding/result', { state: { plan: result } });
+      sessionStorage.setItem(ONBOARDING_PLAN_KEY, JSON.stringify(result));
+      router.push('/onboarding/result');
     } catch (error) {
       console.error('Error saving onboarding data', error);
     } finally {
